@@ -48,3 +48,26 @@ func loadConfigFromFile(fileName string) *Config {
 	json.Unmarshal(jsn, c)
 	return c
 }
+
+const UNLIMITED int = -1
+
+func (cfg *Config) validate() *Config {
+	if cfg.Exec.Connections == 0 {
+		cfg.Exec.Connections = UNLIMITED
+	}
+	if cfg.Exec.DurationSeconds == 0 {
+		cfg.Exec.DurationSeconds = 10
+	}
+	if cfg.Req.Method == "" {
+		cfg.Req.Method = "GET"
+	}
+	if cfg.Res.Code == "" {
+		cfg.Req.Method = "200"
+	}
+	if cfg.Req.Url == "" {
+		msg := "no req URL, panicking"
+		log.Fatal().Msg(msg)
+		panic(msg)
+	}
+	return cfg
+}

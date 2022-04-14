@@ -28,6 +28,7 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 			DurationSeconds: d,
 		},
 	}
+	cfg = *cfg.validate()
 
 	return &P0d{
 		Config: cfg,
@@ -36,9 +37,10 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 }
 
 func NewP0dFromFile(f string) *P0d {
-	cfg := *loadConfigFromFile(f)
+	cfg := loadConfigFromFile(f)
+	cfg = cfg.validate()
 	return &P0d{
-		Config: *loadConfigFromFile(f),
+		Config: *cfg,
 		client: cfg.scaffoldHttpClient(),
 	}
 }
