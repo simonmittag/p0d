@@ -42,6 +42,14 @@ func (p *P0d) Race() {
 	for i := 0; i < p.t; i++ {
 		go func(i int) {
 			log.Debug().Msgf("starting thread %d", i)
+			for {
+				r, e := p.client.Get("http://192.168.20.6:60083/mse6/get")
+				if e != nil {
+					log.Error().Err(e)
+				} else {
+					_ = r
+				}
+			}
 		}(i)
 	}
 
@@ -56,7 +64,7 @@ func scaffoldHttpClient(maxConns int) *http.Client {
 			DisableCompression: true,
 			DialContext: (&net.Dialer{
 				//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
-				Timeout: 3,
+				Timeout: 3 * time.Second,
 			}).DialContext,
 			//TLS handshake timeout is the same as connection timeout
 			TLSHandshakeTimeout: 3,
