@@ -27,6 +27,7 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 		Exec: Exec{
 			Threads:         t,
 			DurationSeconds: d,
+			Connections:     c,
 		},
 	}
 	cfg = *cfg.validate()
