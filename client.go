@@ -16,14 +16,16 @@ type P0d struct {
 	t      int
 	c      int
 	d      int
+	u      string
 	client *http.Client
 }
 
-func NewP0d(t int, c int, d int) *P0d {
+func NewP0d(t int, c int, d int, u string) *P0d {
 	return &P0d{
 		t:      t,
 		c:      c,
 		d:      d,
+		u:      u,
 		client: scaffoldHttpClient(c),
 	}
 }
@@ -43,7 +45,7 @@ func (p *P0d) Race() {
 		go func(i int) {
 			log.Debug().Msgf("starting thread %d", i)
 			for {
-				r, e := p.client.Get("http://192.168.20.6:60083/mse6/get")
+				r, e := p.client.Get(p.u)
 				if e != nil {
 					log.Error().Err(e)
 				} else {

@@ -24,6 +24,7 @@ func main() {
 	t := flag.Int("t", 1, "amount of parallel execution threads")
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
+	u := flag.String("u", "", "url to use")
 	v := flag.Bool("v", false, "print the server version")
 	flag.Parse()
 
@@ -33,7 +34,7 @@ func main() {
 
 	switch mode {
 	case Test:
-		pod := p0d.NewP0d(*t, *c, *d)
+		pod := p0d.NewP0d(*t, *c, *d, *u)
 		pod.Race()
 	case Version:
 		printVersion()
