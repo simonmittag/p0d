@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -64,8 +65,12 @@ func (p *P0d) Race() {
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go func(i int) {
 			log.Debug().Msgf("starting thread %d", i)
+			req, _ := http.NewRequest(p.Config.Req.Method,
+				p.Config.Req.Url,
+				strings.NewReader(p.Config.Req.Body))
+
 			for {
-				r, e := p.client.Get(p.Config.Req.Url)
+				r, e := p.client.Do(req)
 				if e != nil {
 					log.Error().Err(e)
 				} else {

@@ -62,7 +62,7 @@ func (cfg *Config) validate() *Config {
 		cfg.Req.Method = "GET"
 	}
 	if cfg.Res.Code == "" {
-		cfg.Req.Method = "200"
+		cfg.Res.Code = "200"
 	}
 	if cfg.Req.Url == "" {
 		msg := "no req URL, panicking"
