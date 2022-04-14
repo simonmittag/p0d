@@ -27,7 +27,7 @@ func main() {
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	u := flag.String("u", "", "url to use")
-	v := flag.Bool("v", false, "print the server version")
+	v := flag.Bool("v", false, "print p0d version")
 	flag.Parse()
 
 	if len(*C) > 0 {
