@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 const Version string = "0.1"
@@ -29,15 +30,19 @@ func NewP0d(t int, c int, d int) *P0d {
 
 func (p *P0d) Race() {
 	log.Info().Msgf("p0d starting with %d thread(s) using max %d connection(s) for %d second(s)...", p.t, p.c, p.d)
-
 	wg := sync.WaitGroup{}
-	wg.Add(p.t)
-	for i := 0; i < p.t; i++ {
-		go func() {
-			log.Debug().Msgf("starting thread %d", i)
+	time.AfterFunc(time.Duration(p.d)*time.Second, func() {
+		for i := 0; i < p.t; i++ {
 			log.Debug().Msgf("ending thread %d", i)
 			wg.Done()
-		}()
+		}
+	})
+
+	wg.Add(p.t)
+	for i := 0; i < p.t; i++ {
+		go func(i int) {
+			log.Debug().Msgf("starting thread %d", i)
+		}(i)
 	}
 
 	wg.Wait()
