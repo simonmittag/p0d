@@ -65,11 +65,11 @@ func (p *P0d) Race() {
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go func(i int) {
 			log.Debug().Msgf("starting thread %d", i)
-			req, _ := http.NewRequest(p.Config.Req.Method,
-				p.Config.Req.Url,
-				strings.NewReader(p.Config.Req.Body))
-
 			for {
+				req, _ := http.NewRequest(p.Config.Req.Method,
+					p.Config.Req.Url,
+					strings.NewReader(p.Config.Req.Body))
+
 				r, e := p.client.Do(req)
 				if e != nil {
 					log.Error().Err(e)
@@ -86,21 +86,29 @@ func (p *P0d) Race() {
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			DisableCompression: true,
-			DialContext: (&net.Dialer{
-				//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
-				Timeout: 3 * time.Second,
-			}).DialContext,
-			//TLS handshake timeout is the same as connection timeout
-			TLSHandshakeTimeout: 3,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-			MaxIdleConns:        cfg.Exec.Connections,
-			MaxIdleConnsPerHost: cfg.Exec.Connections,
-			IdleConnTimeout:     1,
+	t := &http.Transport{
+		DisableCompression: true,
+		DialContext: (&net.Dialer{
+			//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
+			Timeout: 3 * time.Second,
+		}).DialContext,
+		//TLS handshake timeout is the same as connection timeout
+		TLSHandshakeTimeout: 3,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
 		},
+		MaxIdleConns:        cfg.Exec.Connections,
+		MaxIdleConnsPerHost: cfg.Exec.Connections,
+		IdleConnTimeout:     1,
+	}
+
+	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
+	if cfg.Exec.Connections == UNLIMITED {
+		log.Debug().Msg("transport connection pool disabled")
+		t.DisableKeepAlives = true
+	}
+
+	return &http.Client{
+		Transport: t,
 	}
 }
