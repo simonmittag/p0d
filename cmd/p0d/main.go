@@ -23,6 +23,7 @@ func main() {
 	mode := Test
 	t := flag.Int("t", 1, "amount of parallel execution threads")
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
+	d := flag.Int("d", 10, "time in seconds to run p0d")
 	v := flag.Bool("v", false, "print the server version")
 	flag.Parse()
 
@@ -32,7 +33,7 @@ func main() {
 
 	switch mode {
 	case Test:
-		pod := p0d.NewP0d(*t, *c)
+		pod := p0d.NewP0d(*t, *c, *d)
 		pod.Race()
 	case Version:
 		printVersion()
@@ -47,6 +48,8 @@ func printVersion() {
 func initLogger() {
 	logLevel := strings.ToUpper(os.Getenv("LOGLEVEL"))
 	switch logLevel {
+	case "DEBUG":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "INFO":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	case "WARN":

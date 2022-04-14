@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 )
 
 const Version string = "0.1"
@@ -13,19 +14,34 @@ const Version string = "0.1"
 type P0d struct {
 	t      int
 	c      int
+	d      int
 	client *http.Client
 }
 
-func NewP0d(t int, c int) *P0d {
+func NewP0d(t int, c int, d int) *P0d {
 	return &P0d{
 		t:      t,
 		c:      c,
+		d:      d,
 		client: scaffoldHttpClient(c),
 	}
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("p0d starting with %d thread(s) using max %d connection(s)...", p.t, p.c)
+	log.Info().Msgf("p0d starting with %d thread(s) using max %d connection(s) for %d second(s)...", p.t, p.c, p.d)
+
+	wg := sync.WaitGroup{}
+	wg.Add(p.t)
+	for i := 0; i < p.t; i++ {
+		go func() {
+			log.Debug().Msgf("starting thread %d", i)
+			log.Debug().Msgf("ending thread %d", i)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	log.Info().Msg("exiting...")
 	os.Exit(0)
 }
 
