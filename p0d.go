@@ -34,7 +34,7 @@ type ReqAtmpt struct {
 	Stop          time.Time
 	Req           *http.Request
 	ResponseCode  int
-	ResponseBytes int
+	ResponseBytes int64
 	ResponseError error
 }
 
@@ -119,7 +119,9 @@ func (p *P0d) Race() {
 			log.Info().Msgf("ID: %s", p.ID)
 			log.Info().Msgf("runtime: %s", elapsed)
 			log.Info().Msgf("total requests: %s", FGroup(int64(len(p.Log))))
-			log.Info().Msgf("avg HTTP req/s: %s", FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
+			log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
+			log.Info().Msgf("total bytes read: %s", totalBytesRead(p.Log))
+			log.Info().Msgf("mean bytes/s: %s", meanBytesRead(p.Log, p.Config.Exec.DurationSeconds))
 			log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
 				wrap(p.Config.matchingResponseCodes(p.Log))...)
 			log.Info().Msgf("transport errors: %s/%s (%s%%)", wrap(p.Config.errorCount(p.Log))...)
@@ -169,7 +171,8 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		res, e := p.Client.Do(req)
 		if res != nil {
 			ra.ResponseCode = res.StatusCode
-			io.Copy(ioutil.Discard, res.Body)
+			b, _ := io.Copy(ioutil.Discard, res.Body)
+			ra.ResponseBytes = b
 			res.Body.Close()
 		}
 
@@ -177,6 +180,19 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		ra.ResponseError = e
 		ras <- ra
 	}
+}
+
+func totalBytesRead(log []ReqAtmpt) string {
+	return meanBytesRead(log, 1)
+}
+
+func meanBytesRead(log []ReqAtmpt, d int) string {
+	var t int64 = 0
+	for _, c := range log {
+		t += c.ResponseBytes
+	}
+	t = t / int64(d)
+	return FGroup(t)
 }
 
 func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (string, string, string) {
