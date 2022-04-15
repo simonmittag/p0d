@@ -3,6 +3,7 @@ package p0d
 import (
 	"crypto/tls"
 	"fmt"
+	durafmt "github.com/hako/durafmt"
 	"github.com/rs/zerolog/log"
 	"net"
 	"net/http"
@@ -62,6 +63,8 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
+	start := time.Now()
+
 	log.Info().Msgf("p0d starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
@@ -114,13 +117,15 @@ func (p *P0d) Race() {
 	}
 
 	wg.Wait()
-	log.Info().Msgf("p0d exiting after %d requests...", len(p.log))
-
+	stop := time.Now()
+	elapsed := durafmt.Parse(stop.Sub(start)).LimitFirstN(2).String()
 	wrap := func(vs ...interface{}) []interface{} {
 		return vs
 	}
+	log.Info().Msgf("p0d exiting after %d requests, runtime %s...", len(p.log), elapsed)
 	log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.log))...)
 	log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.log))...)
+
 	os.Exit(0)
 }
 
