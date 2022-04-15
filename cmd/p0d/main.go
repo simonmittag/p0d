@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/simonmittag/p0d"
 	"os"
 	"strings"
@@ -57,6 +58,11 @@ func printVersion() {
 
 func initLogger() {
 	logLevel := strings.ToUpper(os.Getenv("LOGLEVEL"))
+	w := zerolog.ConsoleWriter{
+		Out:     os.Stderr,
+		NoColor: false,
+	}
+	log.Logger = log.Output(w)
 	switch logLevel {
 	case "DEBUG":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)

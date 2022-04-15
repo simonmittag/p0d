@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/hako/durafmt"
+	"github.com/k0kubun/go-ansi"
 	"github.com/rs/zerolog/log"
+	"github.com/schollz/progressbar/v3"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,7 +16,7 @@ import (
 	"time"
 )
 
-const Version string = "0.1.1"
+const Version string = "0.1.2"
 
 type P0d struct {
 	Config Config
@@ -86,6 +88,18 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
+	bar := progressbar.NewOptions(p.Config.Exec.DurationSeconds,
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(35),
+		progressbar.OptionSetDescription("[cyan][p0d][reset] sending HTTP requests..."),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[yellow]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 	for {
 		select {
 		case <-end:
@@ -94,12 +108,15 @@ func (p *P0d) Race() {
 			wrap := func(vs ...interface{}) []interface{} {
 				return vs
 			}
+			log.Info().Msg("")
 			log.Info().Msgf("exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
 			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
 			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
+			elpsd := time.Now().Sub(p.Start).Seconds()
+			bar.Set(int(elpsd))
 			p.Log = append(p.Log, ra)
 		}
 	}
