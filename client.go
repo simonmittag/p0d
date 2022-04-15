@@ -100,9 +100,10 @@ func (p *P0d) Race() {
 				}
 
 				res, e := p.client.Do(req)
-
 				ra.Stop = time.Now()
-				ra.ResponseCode = res.StatusCode
+				if res != nil {
+					ra.ResponseCode = res.StatusCode
+				}
 				ra.ResponseError = e
 
 				p.log = append(p.log, ra)
@@ -118,7 +119,8 @@ func (p *P0d) Race() {
 	wrap := func(vs ...interface{}) []interface{} {
 		return vs
 	}
-	log.Info().Msgf("matching response codes (%d/%d) %s pct", wrap(p.Config.matchingResponseCodes(p.log))...)
+	log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.log))...)
+	log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.log))...)
 	os.Exit(0)
 }
 
@@ -126,6 +128,16 @@ func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
 	var match float32 = 0
 	for _, c := range log {
 		if c.ResponseCode == cfg.Res.Code {
+			match++
+		}
+	}
+	return int(match), len(log), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
+}
+
+func (cfg Config) errorCount(log []ReqAtmpt) (int, int, string) {
+	var match float32 = 0
+	for _, c := range log {
+		if c.ResponseError != nil {
 			match++
 		}
 	}
