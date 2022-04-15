@@ -2,7 +2,7 @@
 exec:
   durationSeconds: 10
   threads: 100
-  connections: -1
+  connections: 10
 req:
   method: GET
   url: http://localhost:60083/mse6/get

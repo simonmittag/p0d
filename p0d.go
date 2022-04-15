@@ -67,15 +67,16 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("p0d %s starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
+	log.Info().Msgf("p0d %s starting with %d thread(s) using max %d TCP connection(s) %s url %s for %d second(s)...",
 		Version,
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
+		p.Config.Req.Method,
 		p.Config.Req.Url,
 		p.Config.Exec.DurationSeconds)
 
 	end := make(chan struct{})
-	ras := make(chan ReqAtmpt, 1000)
+	ras := make(chan ReqAtmpt, 10000)
 
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		end <- struct{}{}
@@ -93,9 +94,9 @@ func (p *P0d) Race() {
 			wrap := func(vs ...interface{}) []interface{} {
 				return vs
 			}
-			log.Info().Msgf("p0d exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
-			log.Info().Msgf("p0d matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("p0d errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
+			log.Info().Msgf("exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
+			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
+			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
