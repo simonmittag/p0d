@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -100,8 +101,8 @@ func (p *P0d) Race() {
 			//fix issue with progress bar
 			os.Stdout.Write([]byte("\n"))
 			log.Info().Msgf("exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
-			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
+			log.Info().Msgf("matching response codes (%s/%s) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
+			log.Info().Msgf("errors (%s/%s) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
@@ -118,10 +119,10 @@ func (p *P0d) initProgressBar() *progressbar.ProgressBar {
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionSetWidth(80),
-		progressbar.OptionSetDescription("[cyan][p0d][reset] sending HTTP requests..."),
+		progressbar.OptionSetDescription("[dark_gray][p0d][reset] sending HTTP requests..."),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[green]>[reset]",
+			SaucerHead:    "[cyan]>[reset]",
 			SaucerPadding: " ",
 			BarStart:      "[",
 			BarEnd:        "]",
@@ -157,24 +158,24 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 	}
 }
 
-func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
+func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (string, string, string) {
 	var match float32 = 0
 	for _, c := range log {
 		if c.ResponseCode == cfg.Res.Code {
 			match++
 		}
 	}
-	return int(match), len(log), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
+	return FGroup(int64(match)), FGroup(int64(len(log))), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
 }
 
-func (cfg Config) errorCount(log []ReqAtmpt) (int, int, string) {
+func (cfg Config) errorCount(log []ReqAtmpt) (string, string, string) {
 	var match float32 = 0
 	for _, c := range log {
 		if c.ResponseError != nil {
 			match++
 		}
 	}
-	return int(match), len(log), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
+	return FGroup(int64(match)), FGroup(int64(len(log))), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {
@@ -203,5 +204,30 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 
 	return &http.Client{
 		Transport: t,
+	}
+}
+
+func FGroup(n int64) string {
+	in := strconv.FormatInt(n, 10)
+	numOfDigits := len(in)
+	if n < 0 {
+		numOfDigits-- // First character is the - sign (not a digit)
+	}
+	numOfCommas := (numOfDigits - 1) / 3
+
+	out := make([]byte, len(in)+numOfCommas)
+	if n < 0 {
+		in, out[0] = in[1:], '-'
+	}
+
+	for i, j, k := len(in)-1, len(out)-1, 0; ; i, j = i-1, j-1 {
+		out[j] = in[i]
+		if i == 0 {
+			return string(out)
+		}
+		if k++; k == 3 {
+			j, k = j-1, 0
+			out[j] = ','
+		}
 	}
 }
