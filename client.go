@@ -5,6 +5,8 @@ import (
 	"fmt"
 	durafmt "github.com/hako/durafmt"
 	"github.com/rs/zerolog/log"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -103,9 +105,12 @@ func (p *P0d) Race() {
 				}
 
 				res, e := p.client.Do(req)
+
 				ra.Stop = time.Now()
 				if res != nil {
 					ra.ResponseCode = res.StatusCode
+					io.Copy(ioutil.Discard, res.Body)
+					res.Body.Close()
 				}
 				ra.ResponseError = e
 
@@ -161,6 +166,7 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
+
 		MaxIdleConns:        cfg.Exec.Connections,
 		MaxIdleConnsPerHost: cfg.Exec.Connections,
 		IdleConnTimeout:     1,
