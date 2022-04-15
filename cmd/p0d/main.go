@@ -61,7 +61,11 @@ func initLogger() {
 	w := zerolog.ConsoleWriter{
 		Out:     os.Stderr,
 		NoColor: false,
+		FormatLevel: func(i interface{}) string {
+			return ""
+		},
 	}
+
 	log.Logger = log.Output(w)
 	switch logLevel {
 	case "DEBUG":

@@ -88,18 +88,7 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	bar := progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(35),
-		progressbar.OptionSetDescription("[cyan][p0d][reset] sending HTTP requests..."),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[green]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
+	bar := p.initProgressBar()
 	for {
 		select {
 		case <-end:
@@ -108,7 +97,8 @@ func (p *P0d) Race() {
 			wrap := func(vs ...interface{}) []interface{} {
 				return vs
 			}
-			log.Info().Msg("")
+			//fix issue with progress bar
+			os.Stdout.Write([]byte("\n"))
 			log.Info().Msgf("exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
 			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
 			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
@@ -121,6 +111,21 @@ func (p *P0d) Race() {
 		}
 	}
 
+}
+
+func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(80),
+		progressbar.OptionSetDescription("[cyan][p0d][reset] sending HTTP requests..."),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[yellow]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
