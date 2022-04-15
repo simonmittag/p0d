@@ -93,20 +93,27 @@ func (p *P0d) Race() {
 	for {
 		select {
 		case <-end:
+			//just in case the progress bar didn't update to 100% cleanly with the exit signal
+			bar.Set(p.Config.Exec.DurationSeconds)
+
 			p.Stop = time.Now()
 			elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
 			wrap := func(vs ...interface{}) []interface{} {
 				return vs
 			}
-			//fix issue with progress bar
+
+			//fix issue with progress bar, force newline
 			os.Stdout.Write([]byte("\n"))
-			log.Info().Msgf("exiting after %s requests, runtime %s, avg %s req/s...",
-				FGroup(int64(len(p.Log))),
-				elapsed,
-				FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
-			log.Info().Msgf("matching response codes (%s/%s) %s%%",
+			log.Info().Msg("")
+			log.Info().Msg("|--------------|")
+			log.Info().Msg("| Test summary |")
+			log.Info().Msg("|--------------|")
+			log.Info().Msgf("runtime: %s", elapsed)
+			log.Info().Msgf("total requests: %s", FGroup(int64(len(p.Log))))
+			log.Info().Msgf("avg HTTP req/s: %s", FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
+			log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
 				wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("transport errors (%s/%s) %s%%", wrap(p.Config.errorCount(p.Log))...)
+			log.Info().Msgf("transport errors: %s/%s (%s%%)", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
@@ -119,11 +126,12 @@ func (p *P0d) Race() {
 }
 
 func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+	start := time.Now().Format(time.Kitchen)
 	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
 		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(80),
-		progressbar.OptionSetDescription("[dark_gray][p0d][reset] sending HTTP requests..."),
+		progressbar.OptionSetWidth(75),
+		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[yellow]=[reset]",
 			SaucerHead:    "[cyan]>[reset]",
