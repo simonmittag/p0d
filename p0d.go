@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const Version string = "0.1.2"
+const Version string = "0.1.3"
 
 type P0d struct {
 	Config Config
@@ -191,6 +191,7 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 			InsecureSkipVerify: true,
 		},
 
+		MaxConnsPerHost:     cfg.Exec.Connections,
 		MaxIdleConns:        cfg.Exec.Connections,
 		MaxIdleConnsPerHost: cfg.Exec.Connections,
 		IdleConnTimeout:     3 * time.Second,
