@@ -47,7 +47,7 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	return &P0d{
 		Config: cfg,
 		client: cfg.scaffoldHttpClient(),
-		log:    make([]ReqAtmpt, 1),
+		log:    make([]ReqAtmpt, 0),
 	}
 }
 
@@ -57,7 +57,7 @@ func NewP0dFromFile(f string) *P0d {
 	return &P0d{
 		Config: *cfg,
 		client: cfg.scaffoldHttpClient(),
-		log:    make([]ReqAtmpt, 1),
+		log:    make([]ReqAtmpt, 0),
 	}
 }
 
@@ -123,7 +123,7 @@ func (p *P0d) Race() {
 }
 
 func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
-	var match float32 = 1
+	var match float32 = 0
 	for _, c := range log {
 		if c.ResponseCode == cfg.Res.Code {
 			match++
