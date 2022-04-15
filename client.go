@@ -127,7 +127,7 @@ func (p *P0d) Race() {
 	wrap := func(vs ...interface{}) []interface{} {
 		return vs
 	}
-	log.Info().Msgf("p0d exiting after %d requests, runtime %s...", len(p.log), elapsed)
+	log.Info().Msgf("p0d exiting after %d requests, runtime %s, avg %d req/s...", len(p.log), elapsed, len(p.log)/p.Config.Exec.DurationSeconds)
 	log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.log))...)
 	log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.log))...)
 
@@ -169,7 +169,7 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 
 		MaxIdleConns:        cfg.Exec.Connections,
 		MaxIdleConnsPerHost: cfg.Exec.Connections,
-		IdleConnTimeout:     1,
+		IdleConnTimeout:     3 * time.Second,
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
