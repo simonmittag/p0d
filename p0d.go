@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version string = "0.1"
+const Version string = "0.1.1"
 
 type P0d struct {
 	Config Config
@@ -67,7 +67,8 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("p0d starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
+	log.Info().Msgf("p0d %s starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
+		Version,
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
 		p.Config.Req.Url,
@@ -81,35 +82,7 @@ func (p *P0d) Race() {
 	})
 
 	for i := 0; i < p.Config.Exec.Threads; i++ {
-		go func(ras chan<- ReqAtmpt) {
-
-			for {
-				req, _ := http.NewRequest(p.Config.Req.Method,
-					p.Config.Req.Url,
-					strings.NewReader(p.Config.Req.Body))
-				ra := ReqAtmpt{
-					Req:   req,
-					Start: time.Now(),
-				}
-				if len(p.Config.Req.Headers) > 0 {
-					for _, h := range p.Config.Req.Headers {
-						for k, v := range h {
-							req.Header.Add(k, v)
-						}
-					}
-				}
-				res, e := p.Client.Do(req)
-				if res != nil {
-					ra.ResponseCode = res.StatusCode
-					io.Copy(ioutil.Discard, res.Body)
-					res.Body.Close()
-				}
-
-				ra.Stop = time.Now()
-				ra.ResponseError = e
-				ras <- ra
-			}
-		}(ras)
+		go p.doReqAtmpt(ras)
 	}
 
 	for {
@@ -121,8 +94,8 @@ func (p *P0d) Race() {
 				return vs
 			}
 			log.Info().Msgf("p0d exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
-			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
+			log.Info().Msgf("p0d matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
+			log.Info().Msgf("p0d errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
@@ -130,6 +103,35 @@ func (p *P0d) Race() {
 		}
 	}
 
+}
+
+func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
+	for {
+		req, _ := http.NewRequest(p.Config.Req.Method,
+			p.Config.Req.Url,
+			strings.NewReader(p.Config.Req.Body))
+		ra := ReqAtmpt{
+			Req:   req,
+			Start: time.Now(),
+		}
+		if len(p.Config.Req.Headers) > 0 {
+			for _, h := range p.Config.Req.Headers {
+				for k, v := range h {
+					req.Header.Add(k, v)
+				}
+			}
+		}
+		res, e := p.Client.Do(req)
+		if res != nil {
+			ra.ResponseCode = res.StatusCode
+			io.Copy(ioutil.Discard, res.Body)
+			res.Body.Close()
+		}
+
+		ra.Stop = time.Now()
+		ra.ResponseError = e
+		ras <- ra
+	}
 }
 
 func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
