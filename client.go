@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"crypto/tls"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"net"
 	"net/http"
@@ -16,6 +17,17 @@ const Version string = "0.1"
 type P0d struct {
 	Config Config
 	client *http.Client
+	log    []ReqAtmpt
+}
+
+type ReqAtmpt struct {
+	ct            int
+	Start         time.Time
+	Stop          time.Time
+	Req           *http.Request
+	ResponseCode  int
+	ResponseBytes int
+	ResponseError error
 }
 
 func NewP0dWithValues(t int, c int, d int, u string) *P0d {
@@ -35,6 +47,7 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	return &P0d{
 		Config: cfg,
 		client: cfg.scaffoldHttpClient(),
+		log:    make([]ReqAtmpt, 1),
 	}
 }
 
@@ -44,6 +57,7 @@ func NewP0dFromFile(f string) *P0d {
 	return &P0d{
 		Config: *cfg,
 		client: cfg.scaffoldHttpClient(),
+		log:    make([]ReqAtmpt, 1),
 	}
 }
 
@@ -57,7 +71,6 @@ func (p *P0d) Race() {
 	wg := sync.WaitGroup{}
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		for i := 0; i < p.Config.Exec.Threads; i++ {
-			log.Debug().Msgf("ending thread %d", i)
 			wg.Done()
 		}
 	})
@@ -65,25 +78,58 @@ func (p *P0d) Race() {
 	wg.Add(p.Config.Exec.Threads)
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go func(i int) {
-			log.Debug().Msgf("starting thread %d", i)
+			var ct int = 0
+
 			for {
 				req, _ := http.NewRequest(p.Config.Req.Method,
 					p.Config.Req.Url,
 					strings.NewReader(p.Config.Req.Body))
 
-				r, e := p.client.Do(req)
-				if e != nil {
-					log.Error().Err(e)
-				} else {
-					_ = r
+				ra := ReqAtmpt{
+					ct:    ct,
+					Req:   req,
+					Start: time.Now(),
 				}
+
+				if len(p.Config.Req.Headers) > 0 {
+					for _, h := range p.Config.Req.Headers {
+						for k, v := range h {
+							req.Header.Add(k, v)
+						}
+					}
+				}
+
+				res, e := p.client.Do(req)
+
+				ra.Stop = time.Now()
+				ra.ResponseCode = res.StatusCode
+				ra.ResponseError = e
+
+				p.log = append(p.log, ra)
+
+				ct++
 			}
 		}(i)
 	}
 
 	wg.Wait()
-	log.Info().Msg("exiting...")
+	log.Info().Msgf("p0d exiting after %d requests...", len(p.log))
+
+	wrap := func(vs ...interface{}) []interface{} {
+		return vs
+	}
+	log.Info().Msgf("matching response codes (%d/%d) %s pct", wrap(p.Config.matchingResponseCodes(p.log))...)
 	os.Exit(0)
+}
+
+func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
+	var match float32 = 1
+	for _, c := range log {
+		if c.ResponseCode == cfg.Res.Code {
+			match++
+		}
+	}
+	return int(match), len(log), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {

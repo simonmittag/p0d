@@ -18,12 +18,12 @@ type Config struct {
 type Req struct {
 	Method  string
 	Url     string
-	Headers map[string]string
+	Headers []map[string]string
 	Body    string
 }
 
 type Res struct {
-	Code string
+	Code int
 }
 
 type Exec struct {
@@ -34,18 +34,24 @@ type Exec struct {
 
 func loadConfigFromFile(fileName string) *Config {
 	log.Debug().Msgf("attempting config from file '%s'", fileName)
+	cfgPanic := func(err error) {
+		if err != nil {
+			msg := fmt.Sprintf("unable to load config from %s, exiting...", fileName)
+			log.Fatal().Msg(msg)
+			panic(msg)
+		}
+	}
+
 	f, err := os.Open(fileName)
 	defer f.Close()
-	if err != nil {
-		msg := fmt.Sprintf("unable to load config from %s, exiting...", fileName)
-		log.Fatal().Msg(msg)
-		panic(msg)
-	}
+	cfgPanic(err)
+
 	yml, _ := ioutil.ReadAll(f)
 	jsn, _ := yaml.YAMLToJSON(yml)
 
 	c := &Config{}
-	json.Unmarshal(jsn, c)
+	err = json.Unmarshal(jsn, c)
+	cfgPanic(err)
 	return c
 }
 
@@ -61,8 +67,8 @@ func (cfg *Config) validate() *Config {
 	if cfg.Req.Method == "" {
 		cfg.Req.Method = "GET"
 	}
-	if cfg.Res.Code == "" {
-		cfg.Res.Code = "200"
+	if cfg.Res.Code == 0 {
+		cfg.Res.Code = 200
 	}
 	if cfg.Req.Url == "" {
 		msg := "no req URL, panicking"
