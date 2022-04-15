@@ -3,7 +3,7 @@ package p0d
 import (
 	"crypto/tls"
 	"fmt"
-	durafmt "github.com/hako/durafmt"
+	"github.com/hako/durafmt"
 	"github.com/rs/zerolog/log"
 	"io"
 	"io/ioutil"
@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -19,12 +18,13 @@ const Version string = "0.1"
 
 type P0d struct {
 	Config Config
-	client *http.Client
-	log    []ReqAtmpt
+	Client *http.Client
+	Log    []ReqAtmpt
+	Start  time.Time
+	Stop   time.Time
 }
 
 type ReqAtmpt struct {
-	ct            int
 	Start         time.Time
 	Stop          time.Time
 	Req           *http.Request
@@ -49,8 +49,9 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 
 	return &P0d{
 		Config: cfg,
-		client: cfg.scaffoldHttpClient(),
-		log:    make([]ReqAtmpt, 0),
+		Client: cfg.scaffoldHttpClient(),
+		Log:    make([]ReqAtmpt, 0),
+		Start:  time.Now(),
 	}
 }
 
@@ -59,43 +60,37 @@ func NewP0dFromFile(f string) *P0d {
 	cfg = cfg.validate()
 	return &P0d{
 		Config: *cfg,
-		client: cfg.scaffoldHttpClient(),
-		log:    make([]ReqAtmpt, 0),
+		Client: cfg.scaffoldHttpClient(),
+		Log:    make([]ReqAtmpt, 0),
+		Start:  time.Now(),
 	}
 }
 
 func (p *P0d) Race() {
-	start := time.Now()
-
 	log.Info().Msgf("p0d starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
 		p.Config.Req.Url,
 		p.Config.Exec.DurationSeconds)
 
-	wg := sync.WaitGroup{}
+	end := make(chan struct{})
+	ras := make(chan ReqAtmpt, 1000)
+
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
-		for i := 0; i < p.Config.Exec.Threads; i++ {
-			wg.Done()
-		}
+		end <- struct{}{}
 	})
 
-	wg.Add(p.Config.Exec.Threads)
 	for i := 0; i < p.Config.Exec.Threads; i++ {
-		go func(i int) {
-			var ct int = 0
+		go func(ras chan<- ReqAtmpt) {
 
 			for {
 				req, _ := http.NewRequest(p.Config.Req.Method,
 					p.Config.Req.Url,
 					strings.NewReader(p.Config.Req.Body))
-
 				ra := ReqAtmpt{
-					ct:    ct,
 					Req:   req,
 					Start: time.Now(),
 				}
-
 				if len(p.Config.Req.Headers) > 0 {
 					for _, h := range p.Config.Req.Headers {
 						for k, v := range h {
@@ -103,35 +98,38 @@ func (p *P0d) Race() {
 						}
 					}
 				}
-
-				res, e := p.client.Do(req)
-
-				ra.Stop = time.Now()
+				res, e := p.Client.Do(req)
 				if res != nil {
 					ra.ResponseCode = res.StatusCode
 					io.Copy(ioutil.Discard, res.Body)
 					res.Body.Close()
 				}
+
+				ra.Stop = time.Now()
 				ra.ResponseError = e
-
-				p.log = append(p.log, ra)
-
-				ct++
+				ras <- ra
 			}
-		}(i)
+		}(ras)
 	}
 
-	wg.Wait()
-	stop := time.Now()
-	elapsed := durafmt.Parse(stop.Sub(start)).LimitFirstN(2).String()
-	wrap := func(vs ...interface{}) []interface{} {
-		return vs
-	}
-	log.Info().Msgf("p0d exiting after %d requests, runtime %s, avg %d req/s...", len(p.log), elapsed, len(p.log)/p.Config.Exec.DurationSeconds)
-	log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.log))...)
-	log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.log))...)
+	for {
+		select {
+		case <-end:
+			p.Stop = time.Now()
+			elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
+			wrap := func(vs ...interface{}) []interface{} {
+				return vs
+			}
+			log.Info().Msgf("p0d exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
+			log.Info().Msgf("matching response codes (%d/%d) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
+			log.Info().Msgf("errors (%d/%d) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
-	os.Exit(0)
+			os.Exit(0)
+		case ra := <-ras:
+			p.Log = append(p.Log, ra)
+		}
+	}
+
 }
 
 func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (int, int, string) {
