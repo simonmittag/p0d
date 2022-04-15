@@ -70,7 +70,7 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("p0d %s starting with %d thread(s) using max %d TCP connection(s) %s url %s for %d second(s)...",
+	log.Info().Msgf("p0d %s starting with %d thread(s) using max %d TCP conn(s) %s %s for %d sec(s)...",
 		Version,
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
@@ -100,9 +100,13 @@ func (p *P0d) Race() {
 			}
 			//fix issue with progress bar
 			os.Stdout.Write([]byte("\n"))
-			log.Info().Msgf("exiting after %d requests, runtime %s, avg %d req/s...", len(p.Log), elapsed, len(p.Log)/p.Config.Exec.DurationSeconds)
-			log.Info().Msgf("matching response codes (%s/%s) %s%%", wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("errors (%s/%s) %s%%", wrap(p.Config.errorCount(p.Log))...)
+			log.Info().Msgf("exiting after %s requests, runtime %s, avg %s req/s...",
+				FGroup(int64(len(p.Log))),
+				elapsed,
+				FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
+			log.Info().Msgf("matching response codes (%s/%s) %s%%",
+				wrap(p.Config.matchingResponseCodes(p.Log))...)
+			log.Info().Msgf("transport errors (%s/%s) %s%%", wrap(p.Config.errorCount(p.Log))...)
 
 			os.Exit(0)
 		case ra := <-ras:
