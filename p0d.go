@@ -3,6 +3,7 @@ package p0d
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hako/durafmt"
 	"github.com/k0kubun/go-ansi"
 	"github.com/rs/zerolog/log"
@@ -17,9 +18,10 @@ import (
 	"time"
 )
 
-const Version string = "0.1.3"
+const Version string = "v0.1.3"
 
 type P0d struct {
+	ID     string
 	Config Config
 	Client *http.Client
 	Log    []ReqAtmpt
@@ -51,6 +53,7 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	cfg = *cfg.validate()
 
 	return &P0d{
+		ID:     createRunId(),
 		Config: cfg,
 		Client: cfg.scaffoldHttpClient(),
 		Log:    make([]ReqAtmpt, 0),
@@ -58,10 +61,17 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	}
 }
 
+func createRunId() string {
+	uid, _ := uuid.NewRandom()
+	return fmt.Sprintf("p0d-%s-%s", Version, uid)
+}
+
 func NewP0dFromFile(f string) *P0d {
 	cfg := loadConfigFromFile(f)
 	cfg = cfg.validate()
+
 	return &P0d{
+		ID:     createRunId(),
 		Config: *cfg,
 		Client: cfg.scaffoldHttpClient(),
 		Log:    make([]ReqAtmpt, 0),
@@ -70,13 +80,11 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("p0d %s starting with %d thread(s) using max %d TCP conn(s) %s %s for %d sec(s)...",
-		Version,
-		p.Config.Exec.Threads,
-		p.Config.Exec.Connections,
-		p.Config.Req.Method,
-		p.Config.Req.Url,
-		p.Config.Exec.DurationSeconds)
+	log.Info().Msgf("%s starting...", p.ID)
+	log.Info().Msgf("duration: %s", durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
+	log.Info().Msgf("thread(s): %d", p.Config.Exec.Threads)
+	log.Info().Msgf("max conn(s): %d", p.Config.Exec.Connections)
+	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
 
 	end := make(chan struct{})
 	ras := make(chan ReqAtmpt, 10000)
@@ -108,6 +116,7 @@ func (p *P0d) Race() {
 			log.Info().Msg("|--------------|")
 			log.Info().Msg("| Test summary |")
 			log.Info().Msg("|--------------|")
+			log.Info().Msgf("ID: %s", p.ID)
 			log.Info().Msgf("runtime: %s", elapsed)
 			log.Info().Msgf("total requests: %s", FGroup(int64(len(p.Log))))
 			log.Info().Msgf("avg HTTP req/s: %s", FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
