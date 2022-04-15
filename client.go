@@ -62,7 +62,7 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Debug().Msgf("p0d starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
+	log.Info().Msgf("p0d starting with %d thread(s) using %d max TCP connection(s) hitting url %s for %d second(s)...",
 		p.Config.Exec.Threads,
 		p.Config.Exec.Connections,
 		p.Config.Req.Url,

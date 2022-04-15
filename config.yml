@@ -4,8 +4,8 @@ exec:
   threads: 2
   connections: -1
 req:
-  method: GET
-  url: http://localhost:60083/mse6/get
+  method: POST
+  url: http://localhost:60083/mse6/post
   headers:
     - Accept-Encoding: "*"
   body: '[
@@ -281,4 +281,4 @@ req:
      }
    ]'
 res:
-  code: 200
+  code: 201
