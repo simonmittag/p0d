@@ -1,7 +1,7 @@
 ---
 exec:
   durationSeconds: 10
-  threads: 2
+  threads: 8
   connections: -1
 req:
   method: POST
