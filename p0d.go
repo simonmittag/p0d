@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.3"
+const Version string = "v0.1.4"
 
 type P0d struct {
 	ID     string
@@ -32,7 +32,6 @@ type P0d struct {
 type ReqAtmpt struct {
 	Start         time.Time
 	Stop          time.Time
-	Req           *http.Request
 	ResponseCode  int
 	ResponseBytes int64
 	ResponseError error
@@ -158,7 +157,6 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			p.Config.Req.Url,
 			strings.NewReader(p.Config.Req.Body))
 		ra := ReqAtmpt{
-			Req:   req,
 			Start: time.Now(),
 		}
 		if len(p.Config.Req.Headers) > 0 {
@@ -178,6 +176,10 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 
 		ra.Stop = time.Now()
 		ra.ResponseError = e
+
+		//aggressive nil
+		req = nil
+
 		ras <- ra
 	}
 }
