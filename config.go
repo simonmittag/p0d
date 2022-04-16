@@ -1,12 +1,16 @@
 package p0d
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
+	"time"
 )
 
 type Config struct {
@@ -32,6 +36,8 @@ type Exec struct {
 	Connections     int
 }
 
+const UNLIMITED int = -1
+
 func loadConfigFromFile(fileName string) *Config {
 	log.Debug().Msgf("attempting config from file '%s'", fileName)
 	cfgPanic := func(err error) {
@@ -55,8 +61,6 @@ func loadConfigFromFile(fileName string) *Config {
 	return c
 }
 
-const UNLIMITED int = -1
-
 func (cfg *Config) validate() *Config {
 	if cfg.Exec.Connections == 0 {
 		cfg.Exec.Connections = UNLIMITED
@@ -76,4 +80,34 @@ func (cfg *Config) validate() *Config {
 		panic(msg)
 	}
 	return cfg
+}
+
+func (cfg Config) scaffoldHttpClient() *http.Client {
+	t := &http.Transport{
+		DisableCompression: true,
+		DialContext: (&net.Dialer{
+			//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
+			Timeout: 3 * time.Second,
+		}).DialContext,
+		//TLS handshake timeout is the same as connection timeout
+		TLSHandshakeTimeout: 3,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+
+		MaxConnsPerHost:     cfg.Exec.Connections,
+		MaxIdleConns:        cfg.Exec.Connections,
+		MaxIdleConnsPerHost: cfg.Exec.Connections,
+		IdleConnTimeout:     3 * time.Second,
+	}
+
+	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
+	if cfg.Exec.Connections == UNLIMITED {
+		log.Debug().Msg("transport connection pool disabled")
+		t.DisableKeepAlives = true
+	}
+
+	return &http.Client{
+		Transport: t,
+	}
 }

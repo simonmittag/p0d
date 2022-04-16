@@ -1,7 +1,6 @@
 package p0d
 
 import (
-	"crypto/tls"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/hako/durafmt"
@@ -10,21 +9,19 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
-const Version string = "v0.1.4"
+const Version string = "v0.1.5a-c1024-nolock-nogoroutine"
 
 type P0d struct {
 	ID     string
 	Config Config
 	Client *http.Client
-	Log    []ReqAtmpt
+	Stats  *Stats
 	Start  time.Time
 	Stop   time.Time
 }
@@ -36,6 +33,11 @@ type ReqAtmpt struct {
 	ResponseCode  int
 	ResponseBytes int64
 	ResponseError error
+}
+
+func createRunId() string {
+	uid, _ := uuid.NewRandom()
+	return fmt.Sprintf("p0d-%s-%s", Version, uid)
 }
 
 func NewP0dWithValues(t int, c int, d int, u string) *P0d {
@@ -52,30 +54,31 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	}
 	cfg = *cfg.validate()
 
+	start := time.Now()
 	return &P0d{
 		ID:     createRunId(),
 		Config: cfg,
 		Client: cfg.scaffoldHttpClient(),
-		Log:    make([]ReqAtmpt, 0),
-		Start:  time.Now(),
+		Stats: &Stats{
+			Start: start,
+		},
+		Start: start,
 	}
-}
-
-func createRunId() string {
-	uid, _ := uuid.NewRandom()
-	return fmt.Sprintf("p0d-%s-%s", Version, uid)
 }
 
 func NewP0dFromFile(f string) *P0d {
 	cfg := loadConfigFromFile(f)
 	cfg = cfg.validate()
 
+	start := time.Now()
 	return &P0d{
 		ID:     createRunId(),
 		Config: *cfg,
 		Client: cfg.scaffoldHttpClient(),
-		Log:    make([]ReqAtmpt, 0),
-		Start:  time.Now(),
+		Stats: &Stats{
+			Start: start,
+		},
+		Start: time.Now(),
 	}
 }
 
@@ -87,7 +90,7 @@ func (p *P0d) Race() {
 	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
 
 	end := make(chan struct{})
-	ras := make(chan ReqAtmpt, 10000)
+	ras := make(chan ReqAtmpt, 1024)
 
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		end <- struct{}{}
@@ -106,9 +109,6 @@ func (p *P0d) Race() {
 
 			p.Stop = time.Now()
 			elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
-			wrap := func(vs ...interface{}) []interface{} {
-				return vs
-			}
 
 			//fix issue with progress bar, force newline
 			os.Stdout.Write([]byte("\n"))
@@ -118,38 +118,30 @@ func (p *P0d) Race() {
 			log.Info().Msg("|--------------|")
 			log.Info().Msgf("ID: %s", p.ID)
 			log.Info().Msgf("runtime: %s", elapsed)
-			log.Info().Msgf("total requests: %s", FGroup(int64(len(p.Log))))
-			log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(len(p.Log)/p.Config.Exec.DurationSeconds)))
-			log.Info().Msgf("total bytes read: %s", totalBytesRead(p.Log))
-			log.Info().Msgf("mean bytes/s: %s", meanBytesRead(p.Log, p.Config.Exec.DurationSeconds))
+			log.Info().Msgf("total requests: %s", FGroup(int64(p.Stats.ReqAtmpts)))
+			log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(p.Stats.ReqAtmpts/p.Config.Exec.DurationSeconds)))
+			log.Info().Msgf("total bytes read: %s", FGroup(p.Stats.SumBytes))
+			log.Info().Msgf("mean bytes/s: %s", FGroup(int64(p.Stats.MeanBytesSec)))
 			log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
-				wrap(p.Config.matchingResponseCodes(p.Log))...)
-			log.Info().Msgf("transport errors: %s/%s (%s%%)", wrap(p.Config.errorCount(p.Log))...)
+				FGroup(int64(p.Stats.SumMatchingResponseCodes)),
+				FGroup(int64(p.Stats.ReqAtmpts)),
+				fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes))
+			log.Info().Msgf("transport errors: %s/%s (%s%%)",
+				FGroup(int64(p.Stats.SumErrors)),
+				FGroup(int64(p.Stats.ReqAtmpts)),
+				fmt.Sprintf("%.2f", p.Stats.PctErrors))
 
 			os.Exit(0)
 		case ra := <-ras:
-			elpsd := time.Now().Sub(p.Start).Seconds()
+			//go func() {
+			now := time.Now()
+			elpsd := now.Sub(p.Start).Seconds()
 			bar.Set(int(elpsd))
-			p.Log = append(p.Log, ra)
+			p.Stats.update(ra, now, p.Config)
+			//}()
 		}
 	}
 
-}
-
-func (p *P0d) initProgressBar() *progressbar.ProgressBar {
-	start := time.Now().Format(time.Kitchen)
-	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(75),
-		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[cyan]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
@@ -186,90 +178,18 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 	}
 }
 
-func totalBytesRead(log []ReqAtmpt) string {
-	return meanBytesRead(log, 1)
-}
-
-func meanBytesRead(log []ReqAtmpt, d int) string {
-	var t int64 = 0
-	for _, c := range log {
-		t += c.ResponseBytes
-	}
-	t = t / int64(d)
-	return FGroup(t)
-}
-
-func (cfg Config) matchingResponseCodes(log []ReqAtmpt) (string, string, string) {
-	var match float32 = 0
-	for _, c := range log {
-		if c.ResponseCode == cfg.Res.Code {
-			match++
-		}
-	}
-	return FGroup(int64(match)), FGroup(int64(len(log))), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
-}
-
-func (cfg Config) errorCount(log []ReqAtmpt) (string, string, string) {
-	var match float32 = 0
-	for _, c := range log {
-		if c.ResponseError != nil {
-			match++
-		}
-	}
-	return FGroup(int64(match)), FGroup(int64(len(log))), fmt.Sprintf("%.2f", 100*(match/float32(len(log))))
-}
-
-func (cfg Config) scaffoldHttpClient() *http.Client {
-	t := &http.Transport{
-		DisableCompression: true,
-		DialContext: (&net.Dialer{
-			//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
-			Timeout: 3 * time.Second,
-		}).DialContext,
-		//TLS handshake timeout is the same as connection timeout
-		TLSHandshakeTimeout: 3,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-
-		MaxConnsPerHost:     cfg.Exec.Connections,
-		MaxIdleConns:        cfg.Exec.Connections,
-		MaxIdleConnsPerHost: cfg.Exec.Connections,
-		IdleConnTimeout:     3 * time.Second,
-	}
-
-	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
-	if cfg.Exec.Connections == UNLIMITED {
-		log.Debug().Msg("transport connection pool disabled")
-		t.DisableKeepAlives = true
-	}
-
-	return &http.Client{
-		Transport: t,
-	}
-}
-
-func FGroup(n int64) string {
-	in := strconv.FormatInt(n, 10)
-	numOfDigits := len(in)
-	if n < 0 {
-		numOfDigits-- // First character is the - sign (not a digit)
-	}
-	numOfCommas := (numOfDigits - 1) / 3
-
-	out := make([]byte, len(in)+numOfCommas)
-	if n < 0 {
-		in, out[0] = in[1:], '-'
-	}
-
-	for i, j, k := len(in)-1, len(out)-1, 0; ; i, j = i-1, j-1 {
-		out[j] = in[i]
-		if i == 0 {
-			return string(out)
-		}
-		if k++; k == 3 {
-			j, k = j-1, 0
-			out[j] = ','
-		}
-	}
+func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+	start := time.Now().Format(time.Kitchen)
+	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(75),
+		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[yellow]=[reset]",
+			SaucerHead:    "[cyan]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 }

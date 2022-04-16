@@ -1,8 +1,8 @@
 ---
 exec:
-  durationSeconds: 30
+  durationSeconds: 3600
   threads: 100
-  connections: 10
+  connections: 100
 req:
   method: POST
   url: http://localhost:60083/mse6/post
