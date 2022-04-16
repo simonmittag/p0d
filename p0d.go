@@ -32,6 +32,7 @@ type P0d struct {
 type ReqAtmpt struct {
 	Start         time.Time
 	Stop          time.Time
+	Elapsed       time.Duration
 	ResponseCode  int
 	ResponseBytes int64
 	ResponseError error
@@ -175,6 +176,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		}
 
 		ra.Stop = time.Now()
+		ra.Elapsed = ra.Stop.Sub(ra.Start)
 		ra.ResponseError = e
 
 		//aggressive nil
