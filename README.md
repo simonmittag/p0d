@@ -1,6 +1,8 @@
 # p0d
 ![](p0d.png)
 
+![SSLLabs Rating](https://img.shields.io/badge/alpha-orange)
+
 p0d is a go based HTTP performance testing tool. It can be configured via cli or yml. p0d
 runs HTTP/1.1 and HTTP/2 requests in parallel against your server and provides detailed
 reports on the output.
