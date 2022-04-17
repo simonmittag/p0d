@@ -18,6 +18,7 @@ type Stats struct {
 	PctMatchingResponseCodes float32
 	SumErrors                int
 	PctErrors                float32
+	ErrorTypes               map[string]int
 }
 
 func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
@@ -37,6 +38,7 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 
 	if atmpt.ResponseError != nil {
 		s.SumErrors++
+		s.ErrorTypes[atmpt.ResponseError.Error()]++
 	}
 	s.PctErrors = 100 * (float32(s.SumErrors) / float32(s.ReqAtmpts))
 }

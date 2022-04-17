@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.7"
+const Version string = "v0.1.8"
 
 type P0d struct {
 	ID     string
@@ -59,7 +59,8 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 		Config: cfg,
 		Client: cfg.scaffoldHttpClient(),
 		Stats: &Stats{
-			Start: start,
+			Start:      start,
+			ErrorTypes: make(map[string]int),
 		},
 		Start: start,
 	}
@@ -75,7 +76,8 @@ func NewP0dFromFile(f string) *P0d {
 		Config: *cfg,
 		Client: cfg.scaffoldHttpClient(),
 		Stats: &Stats{
-			Start: start,
+			Start:      start,
+			ErrorTypes: make(map[string]int),
 		},
 		Start: time.Now(),
 	}
@@ -141,10 +143,17 @@ func (p *P0d) logSummary(elapsed string) {
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes))
-	log.Info().Msgf("transport errors: %s/%s (%s%%)",
+	log.Info().Msgf("total transport errors: %s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumErrors)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctErrors))
+	for k, v := range p.Stats.ErrorTypes {
+		log.Info().Msgf("error: [%s]: %s/%s (%s%%)",
+			k,
+			FGroup(int64(v)),
+			FGroup(int64(p.Stats.ReqAtmpts)),
+			fmt.Sprintf("%.2f", 100*float32(v)/float32(p.Stats.ReqAtmpts)))
+	}
 
 	if p.Stats.SumErrors == 0 {
 		os.Exit(0)
