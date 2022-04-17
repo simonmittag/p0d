@@ -63,6 +63,12 @@ res:
   code: 200
 ```
 
+#### logsampling
+ratio between 0 and 1 of requests to keep when saving results to disk with -O
+
+#### mode
+`binary` or `decimal` for MiB or MB units in reporting
+
 ## Contributions
 
 The j8a team welcomes all [contributors](https://github.com/simonmittag/p0d/blob/master/CONTRIBUTING.md). Everyone
