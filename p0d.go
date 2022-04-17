@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.8"
+const Version string = "v0.1.9"
 
 type P0d struct {
 	ID     string
@@ -98,6 +98,7 @@ func (p *P0d) Race() {
 	}
 
 	bar := p.initProgressBar()
+Main:
 	for {
 		select {
 		case <-end:
@@ -106,6 +107,7 @@ func (p *P0d) Race() {
 
 			p.Stop = time.Now()
 			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
+			break Main
 		case ra := <-ras:
 			now := time.Now()
 			bar.Set(int(now.Sub(p.Start).Seconds()))
@@ -155,9 +157,7 @@ func (p *P0d) logSummary(elapsed string) {
 			fmt.Sprintf("%.2f", 100*float32(v)/float32(p.Stats.ReqAtmpts)))
 	}
 
-	if p.Stats.SumErrors == 0 {
-		os.Exit(0)
-	} else {
+	if p.Stats.SumErrors != 0 {
 		os.Exit(-1)
 	}
 }

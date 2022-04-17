@@ -1,6 +1,11 @@
 package p0d
 
-import "testing"
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
 
 func TestNewP0dFromFile(t *testing.T) {
 	p := NewP0dFromFile("./config_get.yml")
@@ -63,5 +68,68 @@ func TestNewP0dWithValues(t *testing.T) {
 	if p.ID == "" {
 		t.Error("incorrect ID")
 	}
+
+}
+
+func TestLogBootstrap(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml")
+	p.logBootstrap()
+}
+
+func TestLogSummary(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml")
+	p.logSummary("1 minute")
+}
+
+func TestInitProgressBar(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml")
+	pb := p.initProgressBar()
+	if pb == nil {
+		t.Error("progress bar not initialised")
+	}
+}
+
+func TestDoReqAtmpt(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml")
+
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "123456789")
+	}))
+	defer svr.Close()
+
+	//we hack the config's URL to point at our mock server so we can execute the test
+	p.Config.Req.Url = svr.URL
+
+	//blocking channel but we don't want to run crazy inside doReqAtmtp, need only 1 response
+	ras := make(chan ReqAtmpt)
+
+	//fire this off in goroutine
+	go p.doReqAtmpt(ras)
+
+	//then wait for signal from completed reqAtmpt.
+	ra := <-ras
+	if ra.ResponseCode != 200 {
+		t.Error("should have returned response code 200")
+	}
+	if ra.ResponseBytes != 125 {
+		t.Error("should have returned 125 Bytes")
+	}
+	if ra.ResponseError != "" {
+		t.Error("should not have errored")
+	}
+}
+
+func TestRace(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml")
+
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "123456789")
+	}))
+	defer svr.Close()
+
+	//we hack the config's URL to point at our mock server so we can execute the test
+	p.Config.Req.Url = svr.URL
+	p.Config.Exec.DurationSeconds = 3
+	p.Race()
 
 }
