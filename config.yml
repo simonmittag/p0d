@@ -1,10 +1,8 @@
 ---
 exec:
-  mode: decimal
   durationSeconds: 60
-  threads: 1000
-  connections: 1000
-  dialTimeoutSeconds: 0
+  threads: 128
+  connections: 128
 req:
   method: GET
   url: http://localhost:60083/mse6/get

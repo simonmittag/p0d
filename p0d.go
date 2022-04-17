@@ -133,10 +133,10 @@ func (p *P0d) logSummary(elapsed string) {
 	log.Info().Msgf("ID: %s", p.ID)
 	log.Info().Msgf("total runtime: %s", elapsed)
 	log.Info().Msgf("total HTTP req: %s", FGroup(int64(p.Stats.ReqAtmpts)))
-	log.Info().Msgf("mean HTTP req: %s/s", FGroup(int64(p.Stats.ReqAtmptsSec)))
-	log.Info().Msgf("mean req latency: %dμs", FGroup(p.Stats.MeanElpsdAtmptLatency.Microseconds()))
+	log.Info().Msgf("mean HTTP req throughput: %s/s", FGroup(int64(p.Stats.ReqAtmptsSec)))
+	log.Info().Msgf("mean req latency: %sμs", FGroup(p.Stats.MeanElpsdAtmptLatency.Microseconds()))
 	log.Info().Msgf("total bytes read: %s", p.Config.byteCount(p.Stats.SumBytes))
-	log.Info().Msgf("mean throughput: %s/s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
+	log.Info().Msgf("mean bytes throughput: %s/s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
 	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
@@ -155,12 +155,14 @@ func (p *P0d) logSummary(elapsed string) {
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 	for {
-		req, _ := http.NewRequest(p.Config.Req.Method,
-			p.Config.Req.Url,
-			strings.NewReader(p.Config.Req.Body))
 		ra := ReqAtmpt{
 			Start: time.Now(),
 		}
+
+		req, _ := http.NewRequest(p.Config.Req.Method,
+			p.Config.Req.Url,
+			strings.NewReader(p.Config.Req.Body))
+
 		if len(p.Config.Req.Headers) > 0 {
 			for _, h := range p.Config.Req.Headers {
 				for k, v := range h {
@@ -168,6 +170,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 				}
 			}
 		}
+
 		res, e := p.Client.Do(req)
 		if res != nil {
 			ra.ResponseCode = res.StatusCode
@@ -181,7 +184,6 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		ra.Elapsed = ra.Stop.Sub(ra.Start)
 		ra.ResponseError = e
 
-		//aggressive nil
 		req = nil
 
 		ras <- ra
