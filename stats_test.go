@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -10,7 +11,8 @@ func TestUpdateStats(t *testing.T) {
 	cfg := Config{Res: Res{Code: 200}}
 
 	s := Stats{
-		Start: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		ReqAtmpts: 11,
+		Start:     time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
 	g := ReqAtmpt{
@@ -25,8 +27,11 @@ func TestUpdateStats(t *testing.T) {
 	now := time.Date(2000, 1, 1, 0, 0, 4, 0, time.UTC)
 	s.update(g, now, cfg)
 
-	if s.ReqAtmpts != 1 {
+	if s.ReqAtmpts != 12 {
 		t.Error("request attempts incorrect")
+	}
+	if s.ReqAtmptsSec != 3 {
+		t.Error("request attempts per second incorrect")
 	}
 	if s.SumBytes != 1000 {
 		t.Error("sumbytes incorrect")
@@ -37,16 +42,16 @@ func TestUpdateStats(t *testing.T) {
 	if s.Elpsd != 4*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmpt != 2*time.Second {
+	if s.SumElpsdAtmptLatency.Milliseconds() != 2000 {
 		t.Error("sum of elapsed time for attempts incorrect")
 	}
-	if s.MeanElpsdAtmpt != 2*time.Second {
+	if s.MeanElpsdAtmptLatency.Milliseconds() != 166 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
 		t.Error("sum matching response codes incorrect")
 	}
-	if s.PctMatchingResponseCodes != 100.00 {
+	if fmt.Sprintf("%.2f", s.PctMatchingResponseCodes) != "8.33" {
 		t.Error("percent matching response codes incorrect")
 	}
 	if s.SumErrors > 0 || s.PctErrors > 0 {
@@ -68,7 +73,7 @@ func TestUpdateStats(t *testing.T) {
 
 	s.update(g2, now, cfg)
 
-	if s.ReqAtmpts != 2 {
+	if s.ReqAtmpts != 13 {
 		t.Error("request attempts incorrect")
 	}
 	if s.SumBytes != 2000 {
@@ -80,22 +85,22 @@ func TestUpdateStats(t *testing.T) {
 	if s.Elpsd != 6*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmpt != 3*time.Second {
+	if s.SumElpsdAtmptLatency != 3*time.Second {
 		t.Error("sum of elapsed time for attempts incorrect")
 	}
-	if s.MeanElpsdAtmpt != 1500*time.Millisecond {
+	if s.MeanElpsdAtmptLatency.Milliseconds() != 230 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
 		t.Error("sum matching response codes incorrect")
 	}
-	if s.PctMatchingResponseCodes != 50.00 {
+	if fmt.Sprintf("%.2f", s.PctMatchingResponseCodes) != "7.69" {
 		t.Error("percent matching response codes incorrect")
 	}
 	if s.SumErrors != 1 {
 		t.Error("should have errors")
 	}
-	if s.PctErrors != 50.00 {
+	if fmt.Sprintf("%.2f", s.PctErrors) != "7.69" {
 		t.Error("should have errors")
 	}
 }

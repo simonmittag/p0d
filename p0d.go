@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.5a-c1024-nolock-nogoroutine"
+const Version string = "v0.1.6a-c64k"
 
 type P0d struct {
 	ID     string
@@ -83,14 +83,10 @@ func NewP0dFromFile(f string) *P0d {
 }
 
 func (p *P0d) Race() {
-	log.Info().Msgf("%s starting...", p.ID)
-	log.Info().Msgf("duration: %s", durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("thread(s): %d", p.Config.Exec.Threads)
-	log.Info().Msgf("max conn(s): %d", p.Config.Exec.Connections)
-	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
+	p.logBootstrap()
 
 	end := make(chan struct{})
-	ras := make(chan ReqAtmpt, 1024)
+	ras := make(chan ReqAtmpt, 65535)
 
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		end <- struct{}{}
@@ -108,40 +104,53 @@ func (p *P0d) Race() {
 			bar.Set(p.Config.Exec.DurationSeconds)
 
 			p.Stop = time.Now()
-			elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
-
-			//fix issue with progress bar, force newline
-			os.Stdout.Write([]byte("\n"))
-			log.Info().Msg("")
-			log.Info().Msg("|--------------|")
-			log.Info().Msg("| Test summary |")
-			log.Info().Msg("|--------------|")
-			log.Info().Msgf("ID: %s", p.ID)
-			log.Info().Msgf("runtime: %s", elapsed)
-			log.Info().Msgf("total requests: %s", FGroup(int64(p.Stats.ReqAtmpts)))
-			log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(p.Stats.ReqAtmpts/p.Config.Exec.DurationSeconds)))
-			log.Info().Msgf("total bytes read: %s", FGroup(p.Stats.SumBytes))
-			log.Info().Msgf("mean bytes/s: %s", FGroup(int64(p.Stats.MeanBytesSec)))
-			log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
-				FGroup(int64(p.Stats.SumMatchingResponseCodes)),
-				FGroup(int64(p.Stats.ReqAtmpts)),
-				fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes))
-			log.Info().Msgf("transport errors: %s/%s (%s%%)",
-				FGroup(int64(p.Stats.SumErrors)),
-				FGroup(int64(p.Stats.ReqAtmpts)),
-				fmt.Sprintf("%.2f", p.Stats.PctErrors))
-
-			os.Exit(0)
+			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
 		case ra := <-ras:
-			//go func() {
 			now := time.Now()
-			elpsd := now.Sub(p.Start).Seconds()
-			bar.Set(int(elpsd))
+			bar.Set(int(now.Sub(p.Start).Seconds()))
+
 			p.Stats.update(ra, now, p.Config)
-			//}()
 		}
 	}
 
+}
+
+func (p *P0d) logBootstrap() {
+	log.Info().Msgf("%s starting...", p.ID)
+	log.Info().Msgf("duration: %s", durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
+	log.Info().Msgf("thread(s): %d", p.Config.Exec.Threads)
+	log.Info().Msgf("max conn(s): %d", p.Config.Exec.Connections)
+	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
+}
+
+func (p *P0d) logSummary(elapsed string) {
+	//fix issue with progress bar, force newline
+	os.Stdout.Write([]byte("\n"))
+	log.Info().Msg("")
+	log.Info().Msg("|--------------|")
+	log.Info().Msg("| Test summary |")
+	log.Info().Msg("|--------------|")
+	log.Info().Msgf("ID: %s", p.ID)
+	log.Info().Msgf("runtime: %s", elapsed)
+	log.Info().Msgf("total requests: %s", FGroup(int64(p.Stats.ReqAtmpts)))
+	log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(p.Stats.ReqAtmptsSec)))
+	log.Info().Msgf("mean req latency: %dμs", p.Stats.MeanElpsdAtmptLatency.Microseconds())
+	log.Info().Msgf("total bytes read: %s", FGroup(p.Stats.SumBytes))
+	log.Info().Msgf("mean bytes/s: %s", FGroup(int64(p.Stats.MeanBytesSec)))
+	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes))
+	log.Info().Msgf("transport errors: %s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumErrors)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", p.Stats.PctErrors))
+
+	if p.Stats.SumErrors == 0 {
+		os.Exit(0)
+	} else {
+		os.Exit(-1)
+	}
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {

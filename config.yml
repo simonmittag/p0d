@@ -1,6 +1,6 @@
 ---
 exec:
-  durationSeconds: 3600
+  durationSeconds: 30
   threads: 100
   connections: 100
 req:
