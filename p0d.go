@@ -8,6 +8,7 @@ import (
 	"github.com/k0kubun/go-ansi"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -156,12 +157,16 @@ Main:
 			p.Stats.update(ra, now, p.Config)
 
 			if len(p.Output) > 0 {
-				j, je := json.MarshalIndent(ra, prefix, indent)
-				checkWrite(je)
-				_, we := ow.Write(j)
-				checkWrite(we)
-				_, we = ow.Write(comma)
-				checkWrite(we)
+				rand.Seed(time.Now().UnixNano())
+				//only sample a subset of requests
+				if rand.Float32() < p.Config.Exec.LogSampling {
+					j, je := json.MarshalIndent(ra, prefix, indent)
+					checkWrite(je)
+					_, we := ow.Write(j)
+					checkWrite(we)
+					_, we = ow.Write(comma)
+					checkWrite(we)
+				}
 			}
 		}
 	}
