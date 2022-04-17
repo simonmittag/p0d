@@ -10,8 +10,9 @@ func TestUpdateStats(t *testing.T) {
 	cfg := Config{Res: Res{Code: 200}}
 
 	s := Stats{
-		ReqAtmpts: 11,
-		Start:     time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		ReqAtmpts:  11,
+		Start:      time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		ErrorTypes: make(map[string]int),
 	}
 
 	g := ReqAtmpt{
@@ -20,7 +21,7 @@ func TestUpdateStats(t *testing.T) {
 		Elapsed:       time.Duration(2 * time.Second),
 		ResponseCode:  200,
 		ResponseBytes: 1000,
-		ResponseError: "i'm an error",
+		ResponseError: "",
 	}
 
 	now := time.Date(2000, 1, 1, 0, 0, 4, 0, time.UTC)

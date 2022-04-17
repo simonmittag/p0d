@@ -53,7 +53,6 @@ func main() {
 
 func printVersion() {
 	fmt.Printf("p0d %s\n", p0d.Version)
-	os.Exit(0)
 }
 
 func initLogger() {
