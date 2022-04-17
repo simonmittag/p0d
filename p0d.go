@@ -7,9 +7,8 @@ import (
 	"github.com/k0kubun/go-ansi"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
-	"io"
-	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"strings"
 	"time"
@@ -171,8 +170,9 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		res, e := p.Client.Do(req)
 		if res != nil {
 			ra.ResponseCode = res.StatusCode
-			b, _ := io.Copy(ioutil.Discard, res.Body)
-			ra.ResponseBytes = b
+			b, _ := httputil.DumpResponse(res, true)
+			ra.ResponseBytes = int64(len(b))
+			_ = b
 			res.Body.Close()
 		}
 
