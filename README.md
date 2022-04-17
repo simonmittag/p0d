@@ -1,5 +1,3 @@
-![](p0d.png)
-
 [![Circleci Builds](https://circleci.com/gh/simonmittag/p0d.svg?style=shield)](https://circleci.com/gh/simonmittag/p0d)
 [![Github Issues](https://img.shields.io/github/issues/simonmittag/p0d)](https://github.com/simonmittag/p0d/issues)
 [![Github Activity](https://img.shields.io/github/commit-activity/m/simonmittag/p0d)](https://img.shields.io/github/commit-activity/m/simonmittag/p0d)  
@@ -9,6 +7,9 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Version](https://img.shields.io/badge/version-0.1.8-orange)](https://github.com/simonmittag/p0d)
+
+## What is p0d?
+![](p0d.png)
 
 p0d is a go based HTTP performance testing tool. It can be configured via cli or yml. p0d
 runs HTTP/1.1 and HTTP/2 requests in parallel against your server and provides detailed
