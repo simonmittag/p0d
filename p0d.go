@@ -31,7 +31,7 @@ type ReqAtmpt struct {
 	Elapsed       time.Duration
 	ResponseCode  int
 	ResponseBytes int64
-	ResponseError error
+	ResponseError string
 }
 
 func createRunId() string {
@@ -191,7 +191,19 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 
 		ra.Stop = time.Now()
 		ra.Elapsed = ra.Stop.Sub(ra.Start)
-		ra.ResponseError = e
+
+		if e != nil {
+			em := ""
+			for ek, ev := range connectionErrors {
+				if strings.Contains(e.Error(), ek) {
+					em = ev
+				}
+			}
+			if em == "" {
+				em = e.Error()
+			}
+			ra.ResponseError = em
+		}
 
 		req = nil
 

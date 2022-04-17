@@ -36,9 +36,9 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	}
 	s.PctMatchingResponseCodes = 100 * (float32(s.SumMatchingResponseCodes) / float32(s.ReqAtmpts))
 
-	if atmpt.ResponseError != nil {
+	if atmpt.ResponseError != "" {
 		s.SumErrors++
-		s.ErrorTypes[atmpt.ResponseError.Error()]++
+		s.ErrorTypes[atmpt.ResponseError]++
 	}
 	s.PctErrors = 100 * (float32(s.SumErrors) / float32(s.ReqAtmpts))
 }
