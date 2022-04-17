@@ -1,13 +1,13 @@
 ---
 exec:
-  durationSeconds: 60
+  durationSeconds: 30
   threads: 128
   connections: 128
 req:
-  method: GET
-  url: http://localhost:60083/mse6/get
+  method: POST
+  url: http://localhost:60083/mse6/post
   headers:
-    - Accept-Encoding: "*"
+    - Accept-Encoding: "identity"
   body: '[
      {
        "_id": "6258803a11df084c64305568",
@@ -281,4 +281,4 @@ req:
      }
    ]'
 res:
-  code: 200
+  code: 201

@@ -1,0 +1,12 @@
+---
+exec:
+  durationSeconds: 30
+  threads: 128
+  connections: 128
+req:
+  method: GET
+  url: http://localhost:60083/mse6/get
+  headers:
+    - Accept-Encoding: "identity"
+res:
+  code: 200

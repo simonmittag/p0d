@@ -1,7 +1,6 @@
 package p0d
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -21,7 +20,7 @@ func TestUpdateStats(t *testing.T) {
 		Elapsed:       time.Duration(2 * time.Second),
 		ResponseCode:  200,
 		ResponseBytes: 1000,
-		ResponseError: nil,
+		ResponseError: "i'm an error",
 	}
 
 	now := time.Date(2000, 1, 1, 0, 0, 4, 0, time.UTC)
@@ -68,7 +67,7 @@ func TestUpdateStats(t *testing.T) {
 		Elapsed:       time.Duration(1 * time.Second),
 		ResponseCode:  201,
 		ResponseBytes: 1000,
-		ResponseError: errors.New("i'm so bad"),
+		ResponseError: "i'm so bad",
 	}
 
 	s.update(g2, now, cfg)
