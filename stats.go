@@ -26,19 +26,19 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.Elpsd = now.Sub(s.Start)
 	s.ReqAtmptsSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
 
-	s.SumBytes += atmpt.ResponseBytes
+	s.SumBytes += atmpt.ResBytes
 	s.MeanBytesSec = int(math.Floor(float64(s.SumBytes) / s.Elpsd.Seconds()))
-	s.SumElpsdAtmptLatency += atmpt.Elapsed
+	s.SumElpsdAtmptLatency += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatency = s.SumElpsdAtmptLatency / time.Duration(s.ReqAtmpts)
 
-	if atmpt.ResponseCode == cfg.Res.Code {
+	if atmpt.ResCode == cfg.Res.Code {
 		s.SumMatchingResponseCodes++
 	}
 	s.PctMatchingResponseCodes = 100 * (float32(s.SumMatchingResponseCodes) / float32(s.ReqAtmpts))
 
-	if atmpt.ResponseError != "" {
+	if atmpt.ResErr != "" {
 		s.SumErrors++
-		s.ErrorTypes[atmpt.ResponseError]++
+		s.ErrorTypes[atmpt.ResErr]++
 	}
 	s.PctErrors = 100 * (float32(s.SumErrors) / float32(s.ReqAtmpts))
 }

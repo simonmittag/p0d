@@ -1,6 +1,7 @@
 package p0d
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/hako/durafmt"
@@ -14,32 +15,33 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.9"
+const Version string = "v0.2.0"
 
 type P0d struct {
 	ID     string
 	Config Config
-	Client *http.Client
+	client *http.Client
 	Stats  *Stats
 	Start  time.Time
 	Stop   time.Time
+	Output string
 }
 
 type ReqAtmpt struct {
-	Start         time.Time
-	Stop          time.Time
-	Elapsed       time.Duration
-	ResponseCode  int
-	ResponseBytes int64
-	ResponseError string
+	Start    time.Time
+	Stop     time.Time
+	ElpsdNs  time.Duration
+	ResCode  int
+	ResBytes int64
+	ResErr   string
 }
 
 func createRunId() string {
 	uid, _ := uuid.NewRandom()
-	return fmt.Sprintf("p0d-%s-%s", Version, uid)
+	return fmt.Sprintf("p0d-%s-race-%s", Version, uid)
 }
 
-func NewP0dWithValues(t int, c int, d int, u string) *P0d {
+func NewP0dWithValues(t int, c int, d int, u string, o string) *P0d {
 	cfg := Config{
 		Req: Req{
 			Method: "GET",
@@ -57,16 +59,17 @@ func NewP0dWithValues(t int, c int, d int, u string) *P0d {
 	return &P0d{
 		ID:     createRunId(),
 		Config: cfg,
-		Client: cfg.scaffoldHttpClient(),
+		client: cfg.scaffoldHttpClient(),
 		Stats: &Stats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		Start: start,
+		Start:  start,
+		Output: o,
 	}
 }
 
-func NewP0dFromFile(f string) *P0d {
+func NewP0dFromFile(f string, o string) *P0d {
 	cfg := loadConfigFromFile(f)
 	cfg = cfg.validate()
 
@@ -74,12 +77,13 @@ func NewP0dFromFile(f string) *P0d {
 	return &P0d{
 		ID:     createRunId(),
 		Config: *cfg,
-		Client: cfg.scaffoldHttpClient(),
+		client: cfg.scaffoldHttpClient(),
 		Stats: &Stats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		Start: time.Now(),
+		Start:  time.Now(),
+		Output: o,
 	}
 }
 
@@ -93,11 +97,39 @@ func (p *P0d) Race() {
 		end <- struct{}{}
 	})
 
+	checkWrite := func(e error) {
+		if e != nil {
+			log.Fatal().Msgf("unable to write to output file %s, exiting...", p.Output)
+			os.Exit(-1)
+		}
+	}
+
+	var aopen = []byte("[")
+	var aclose = []byte("]")
+	const prefix string = ""
+	const indent string = "  "
+	var comma = []byte(",\n")
+
+	var ow *os.File
+	defer func() {
+		if ow != nil {
+			ow.Close()
+		}
+	}()
+	var oe error
+	if len(p.Output) > 0 {
+		ow, oe = os.Create(p.Output)
+		checkWrite(oe)
+		_, we := ow.Write(aopen)
+		checkWrite(we)
+	}
+
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go p.doReqAtmpt(ras)
 	}
 
 	bar := p.initProgressBar()
+
 Main:
 	for {
 		select {
@@ -107,15 +139,32 @@ Main:
 
 			p.Stop = time.Now()
 			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
+
+			if len(p.Output) > 0 {
+				j, je := json.MarshalIndent(p, prefix, indent)
+				checkWrite(je)
+				_, we := ow.Write(j)
+				checkWrite(we)
+				_, we = ow.Write(aclose)
+				checkWrite(we)
+			}
 			break Main
 		case ra := <-ras:
 			now := time.Now()
 			bar.Set(int(now.Sub(p.Start).Seconds()))
 
 			p.Stats.update(ra, now, p.Config)
+
+			if len(p.Output) > 0 {
+				j, je := json.MarshalIndent(ra, prefix, indent)
+				checkWrite(je)
+				_, we := ow.Write(j)
+				checkWrite(we)
+				_, we = ow.Write(comma)
+				checkWrite(we)
+			}
 		}
 	}
-
 }
 
 func (p *P0d) logBootstrap() {
@@ -180,17 +229,17 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			}
 		}
 
-		res, e := p.Client.Do(req)
+		res, e := p.client.Do(req)
 		if res != nil {
-			ra.ResponseCode = res.StatusCode
+			ra.ResCode = res.StatusCode
 			b, _ := httputil.DumpResponse(res, true)
-			ra.ResponseBytes = int64(len(b))
+			ra.ResBytes = int64(len(b))
 			_ = b
 			res.Body.Close()
 		}
 
 		ra.Stop = time.Now()
-		ra.Elapsed = ra.Stop.Sub(ra.Start)
+		ra.ElpsdNs = ra.Stop.Sub(ra.Start)
 
 		if e != nil {
 			em := ""
@@ -202,7 +251,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			if em == "" {
 				em = e.Error()
 			}
-			ra.ResponseError = em
+			ra.ResErr = em
 		}
 
 		req = nil
