@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.1.6a-c64k"
+const Version string = "v0.1.7"
 
 type P0d struct {
 	ID     string
@@ -117,8 +117,9 @@ func (p *P0d) Race() {
 func (p *P0d) logBootstrap() {
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s", durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("thread(s): %d", p.Config.Exec.Threads)
-	log.Info().Msgf("max conn(s): %d", p.Config.Exec.Connections)
+	log.Info().Msgf("thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
+	log.Info().Msgf("max conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
+	log.Info().Msgf("dial timeout: %s", durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
 	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
 }
 
@@ -130,10 +131,10 @@ func (p *P0d) logSummary(elapsed string) {
 	log.Info().Msg("| Test summary |")
 	log.Info().Msg("|--------------|")
 	log.Info().Msgf("ID: %s", p.ID)
-	log.Info().Msgf("runtime: %s", elapsed)
-	log.Info().Msgf("total requests: %s", FGroup(int64(p.Stats.ReqAtmpts)))
+	log.Info().Msgf("total runtime: %s", elapsed)
+	log.Info().Msgf("total HTTP req: %s", FGroup(int64(p.Stats.ReqAtmpts)))
 	log.Info().Msgf("mean HTTP req: %s/s", FGroup(int64(p.Stats.ReqAtmptsSec)))
-	log.Info().Msgf("mean req latency: %dμs", p.Stats.MeanElpsdAtmptLatency.Microseconds())
+	log.Info().Msgf("mean req latency: %dμs", FGroup(p.Stats.MeanElpsdAtmptLatency.Microseconds()))
 	log.Info().Msgf("total bytes read: %s", p.Config.byteCount(p.Stats.SumBytes))
 	log.Info().Msgf("mean throughput: %s/s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
 	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",

@@ -32,16 +32,17 @@ type Res struct {
 }
 
 type Exec struct {
-	Mode            string
-	DurationSeconds int
-	Threads         int
-	Connections     int
+	Mode               string
+	DurationSeconds    int
+	Threads            int
+	Connections        int
+	DialTimeoutSeconds int64
 }
 
 const UNLIMITED int = -1
 
 func loadConfigFromFile(fileName string) *Config {
-	log.Debug().Msgf("attempting config from file '%s'", fileName)
+	log.Debug().Msgf("loading config from file '%s'", fileName)
 	cfgPanic := func(err error) {
 		if err != nil {
 			msg := fmt.Sprintf("unable to load config from %s, exiting...", fileName)
@@ -70,6 +71,9 @@ func (cfg *Config) validate() *Config {
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10
 	}
+	if cfg.Exec.DialTimeoutSeconds == 0 {
+		cfg.Exec.DialTimeoutSeconds = 3
+	}
 	if cfg.Req.Method == "" {
 		cfg.Req.Method = "GET"
 	}
@@ -88,8 +92,8 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 	t := &http.Transport{
 		DisableCompression: true,
 		DialContext: (&net.Dialer{
-			//we are aborting after 3 seconds of dial connect to complete and treat the dial as degraded
-			Timeout: 3 * time.Second,
+			//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
+			Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		}).DialContext,
 		//TLS handshake timeout is the same as connection timeout
 		TLSHandshakeTimeout: 3,
