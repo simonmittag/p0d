@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,7 @@ type Res struct {
 }
 
 type Exec struct {
+	Mode            string
 	DurationSeconds int
 	Threads         int
 	Connections     int
@@ -109,5 +111,14 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 
 	return &http.Client{
 		Transport: t,
+	}
+}
+
+func (cfg Config) byteCount(b int64) string {
+	switch strings.TrimSpace(cfg.Exec.Mode) {
+	case "binary":
+		return ByteCountIEC(b)
+	default:
+		return ByteCountSI(b)
 	}
 }

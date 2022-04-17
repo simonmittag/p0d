@@ -134,8 +134,8 @@ func (p *P0d) logSummary(elapsed string) {
 	log.Info().Msgf("total requests: %s", FGroup(int64(p.Stats.ReqAtmpts)))
 	log.Info().Msgf("mean HTTP req/s: %s", FGroup(int64(p.Stats.ReqAtmptsSec)))
 	log.Info().Msgf("mean req latency: %dμs", p.Stats.MeanElpsdAtmptLatency.Microseconds())
-	log.Info().Msgf("total bytes read: %s", FGroup(p.Stats.SumBytes))
-	log.Info().Msgf("mean bytes/s: %s", FGroup(int64(p.Stats.MeanBytesSec)))
+	log.Info().Msgf("total bytes read: %s", p.Config.byteCount(p.Stats.SumBytes))
+	log.Info().Msgf("mean bytes/s: %s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
 	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),

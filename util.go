@@ -1,6 +1,9 @@
 package p0d
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 func FGroup(n int64) string {
 	in := strconv.FormatInt(n, 10)
@@ -25,4 +28,32 @@ func FGroup(n int64) string {
 			out[j] = ','
 		}
 	}
+}
+
+func ByteCountIEC(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func ByteCountSI(b int64) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }
