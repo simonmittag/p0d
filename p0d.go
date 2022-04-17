@@ -148,7 +148,7 @@ func (p *P0d) logSummary(elapsed string) {
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctErrors))
 	for k, v := range p.Stats.ErrorTypes {
-		log.Info().Msgf("error: [%s]: %s/%s (%s%%)",
+		log.Info().Msgf("  - error: [%s]: %s/%s (%s%%)",
 			k,
 			FGroup(int64(v)),
 			FGroup(int64(p.Stats.ReqAtmpts)),
