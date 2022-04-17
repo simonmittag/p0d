@@ -1,5 +1,6 @@
 ---
 exec:
+  mode: binary
   durationSeconds: 30
   threads: 128
   connections: 128
