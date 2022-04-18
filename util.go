@@ -6,15 +6,16 @@ import (
 	"syscall"
 )
 
-func getUlimit() string {
+func getUlimit() (string, int64) {
 	var rLimit syscall.Rlimit
 	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
-		return "not determined"
+		return "not determined", 0
 	} else {
 		return fmt.Sprintf("current [%s] max [%s]",
-			FGroup(int64(rLimit.Cur)),
-			FGroup(int64(rLimit.Max)))
+				FGroup(int64(rLimit.Cur)),
+				FGroup(int64(rLimit.Max))),
+			int64(rLimit.Cur)
 	}
 }
 

@@ -19,13 +19,14 @@ import (
 const Version string = "v0.2.1"
 
 type P0d struct {
-	ID     string
-	Config Config
-	client *http.Client
-	Stats  *Stats
-	Start  time.Time
-	Stop   time.Time
-	Output string
+	ID             string
+	Config         Config
+	client         *http.Client
+	Stats          *Stats
+	Start          time.Time
+	Stop           time.Time
+	Output         string
+	OsMaxOpenFiles int64
 }
 
 type ReqAtmpt struct {
@@ -57,6 +58,7 @@ func NewP0dWithValues(t int, c int, d int, u string, o string) *P0d {
 	cfg = *cfg.validate()
 
 	start := time.Now()
+	_, ul := getUlimit()
 	return &P0d{
 		ID:     createRunId(),
 		Config: cfg,
@@ -65,8 +67,9 @@ func NewP0dWithValues(t int, c int, d int, u string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		Start:  start,
-		Output: o,
+		Start:          start,
+		Output:         o,
+		OsMaxOpenFiles: ul,
 	}
 }
 
@@ -75,6 +78,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 	cfg = cfg.validate()
 
 	start := time.Now()
+	_, ul := getUlimit()
 	return &P0d{
 		ID:     createRunId(),
 		Config: *cfg,
@@ -83,12 +87,14 @@ func NewP0dFromFile(f string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		Start:  time.Now(),
-		Output: o,
+		Start:          time.Now(),
+		Output:         o,
+		OsMaxOpenFiles: ul,
 	}
 }
 
 func (p *P0d) Race() {
+	_, p.OsMaxOpenFiles = getUlimit()
 	p.logBootstrap()
 
 	end := make(chan struct{})
@@ -173,13 +179,21 @@ Main:
 }
 
 func (p *P0d) logBootstrap() {
+	if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
+		msg := fmt.Sprintf("found OS open file limits [%d] too low, recommend reducing connections [%d] or changing this with ulimit -n",
+			p.OsMaxOpenFiles,
+			p.Config.Exec.Connections)
+		log.Warn().Msg(msg)
+	} else {
+		ul, _ := getUlimit()
+		log.Info().Msgf("found OS open file limits (ulimit): %s", ul)
+	}
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("OS open file limits (ulimit): %s", getUlimit())
 	log.Info().Msgf("parallel execution thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
 	log.Info().Msgf("max TCP conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
-	log.Info().Msgf("HTTP dial timeout: %s",
+	log.Info().Msgf("network dial timeout (inc. TLS handshake): %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
 	if p.Config.Exec.SpacingMillis > 0 {
 		log.Info().Msgf("request spacing: %s",

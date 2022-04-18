@@ -91,7 +91,7 @@ func (cfg *Config) validate() *Config {
 		cfg.Res.Code = 200
 	}
 	if cfg.Req.Url == "" {
-		msg := "no req URL, panicking"
+		msg := "request url not specified, exiting..."
 		log.Fatal().Msg(msg)
 		panic(msg)
 	}
