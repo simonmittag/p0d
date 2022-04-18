@@ -32,6 +32,8 @@ p0d -h
   Usage of p0d:
   -C string
         load configuration from yml file
+  -O string
+        save detailed JSON output to file
   -c int
         maximum amount of parallel TCP connections used (default 1)
   -d int
@@ -68,6 +70,9 @@ ratio between 0 and 1 of requests to keep when saving results to disk with -O
 
 #### mode
 `binary` or `decimal` for MiB or MB units in reporting
+
+#### exec.spacingMillis
+artificial spacing in milliseconds, introduced before sending each request.
 
 ## Contributions
 
