@@ -65,10 +65,10 @@ res:
   code: 200
 ```
 
-#### logsampling
+#### exec.logsampling
 ratio between 0 and 1 of requests to keep when saving results to disk with -O
 
-#### mode
+#### exec.mode
 `binary` or `decimal` for MiB or MB units in reporting
 
 #### exec.spacingMillis
