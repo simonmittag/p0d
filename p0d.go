@@ -176,9 +176,10 @@ func (p *P0d) logBootstrap() {
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
-	log.Info().Msgf("max conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
-	log.Info().Msgf("dial timeout: %s",
+	log.Info().Msgf("OS open file limits (ulimit): %s", getUlimit())
+	log.Info().Msgf("parallel execution thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
+	log.Info().Msgf("max TCP conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
+	log.Info().Msgf("HTTP dial timeout: %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
 	if p.Config.Exec.SpacingMillis > 0 {
 		log.Info().Msgf("request spacing: %s",

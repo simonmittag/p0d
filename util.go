@@ -3,7 +3,20 @@ package p0d
 import (
 	"fmt"
 	"strconv"
+	"syscall"
 )
+
+func getUlimit() string {
+	var rLimit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		return "not determined"
+	} else {
+		return fmt.Sprintf("current [%s] max [%s]",
+			FGroup(int64(rLimit.Cur)),
+			FGroup(int64(rLimit.Max)))
+	}
+}
 
 func FGroup(n int64) string {
 	in := strconv.FormatInt(n, 10)
