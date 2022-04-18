@@ -183,9 +183,9 @@ func (p *P0d) logBootstrap() {
 		msg := fmt.Sprintf("unable to determine OS open file limits")
 		log.Warn().Msg(msg)
 	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
-		msg := fmt.Sprintf("found OS max open file limit [%d] too low, recommend reducing conns [%d]",
-			p.OsMaxOpenFiles,
-			p.Config.Exec.Connections)
+		msg := fmt.Sprintf("found OS max open file limit %s too low, reduce connections from %s",
+			FGroup(int64(p.OsMaxOpenFiles)),
+			FGroup(int64(p.Config.Exec.Connections)))
 		log.Warn().Msg(msg)
 	} else {
 		ul, _ := getUlimit()
