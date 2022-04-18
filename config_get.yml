@@ -2,8 +2,9 @@
 exec:
   mode: binary
   durationSeconds: 30
-  threads: 128
-  connections: 128
+  spacingMillis: 100
+  threads: 256
+  connections: 256
   logsampling: 0.1
 req:
   method: GET

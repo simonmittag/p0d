@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.2.0"
+const Version string = "v0.2.1"
 
 type P0d struct {
 	ID     string
@@ -174,10 +174,19 @@ Main:
 
 func (p *P0d) logBootstrap() {
 	log.Info().Msgf("%s starting...", p.ID)
-	log.Info().Msgf("duration: %s", durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
+	log.Info().Msgf("duration: %s",
+		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
 	log.Info().Msgf("thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
 	log.Info().Msgf("max conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
-	log.Info().Msgf("dial timeout: %s", durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
+	log.Info().Msgf("dial timeout: %s",
+		durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
+	if p.Config.Exec.SpacingMillis > 0 {
+		log.Info().Msgf("request spacing: %s",
+			durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String())
+	}
+	if len(p.Output) > 0 {
+		log.Info().Msgf("log sampling rate: %s%%", FGroup(int64(100*p.Config.Exec.LogSampling)))
+	}
 	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
 }
 
@@ -192,7 +201,7 @@ func (p *P0d) logSummary(elapsed string) {
 	log.Info().Msgf("total runtime: %s", elapsed)
 	log.Info().Msgf("total HTTP req: %s", FGroup(int64(p.Stats.ReqAtmpts)))
 	log.Info().Msgf("mean HTTP req throughput: %s/s", FGroup(int64(p.Stats.ReqAtmptsSec)))
-	log.Info().Msgf("mean req latency: %sμs", FGroup(p.Stats.MeanElpsdAtmptLatency.Microseconds()))
+	log.Info().Msgf("mean req latency: %s", durafmt.Parse(time.Duration(p.Stats.MeanElpsdAtmptLatency)).LimitFirstN(2).String())
 	log.Info().Msgf("total bytes read: %s", p.Config.byteCount(p.Stats.SumBytes))
 	log.Info().Msgf("mean bytes throughput: %s/s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
 	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
@@ -218,6 +227,11 @@ func (p *P0d) logSummary(elapsed string) {
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 	for {
+		//introduce artifical request latency
+		if p.Config.Exec.SpacingMillis > 0 {
+			time.Sleep(time.Duration(p.Config.Exec.SpacingMillis) * time.Millisecond)
+		}
+
 		ra := ReqAtmpt{
 			Start: time.Now(),
 		}
@@ -270,7 +284,7 @@ func (p *P0d) initProgressBar() *progressbar.ProgressBar {
 	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
 		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(75),
+		progressbar.OptionSetWidth(30),
 		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[yellow]=[reset]",
