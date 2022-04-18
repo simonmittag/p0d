@@ -37,6 +37,8 @@ type Exec struct {
 	Threads            int
 	Connections        int
 	DialTimeoutSeconds int64
+	LogSampling        float32
+	SpacingMillis      int64
 }
 
 const UNLIMITED int = -1
@@ -73,6 +75,14 @@ func (cfg *Config) validate() *Config {
 	}
 	if cfg.Exec.DialTimeoutSeconds == 0 {
 		cfg.Exec.DialTimeoutSeconds = 3
+	}
+	if cfg.Exec.LogSampling <= 0 || cfg.Exec.LogSampling > 1 {
+		//default to all
+		cfg.Exec.LogSampling = 1
+	}
+	if cfg.Exec.SpacingMillis < 0 {
+		//default to all
+		cfg.Exec.SpacingMillis = 0
 	}
 	if cfg.Req.Method == "" {
 		cfg.Req.Method = "GET"

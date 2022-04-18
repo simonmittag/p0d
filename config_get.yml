@@ -1,8 +1,10 @@
 ---
 exec:
+  mode: binary
   durationSeconds: 30
   threads: 128
   connections: 128
+  logsampling: 0.1
 req:
   method: GET
   url: http://localhost:60083/mse6/get

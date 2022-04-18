@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewP0dFromFile(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
@@ -39,7 +39,7 @@ func TestNewP0dFromFile(t *testing.T) {
 }
 
 func TestNewP0dWithValues(t *testing.T) {
-	p := NewP0dWithValues(8, 7, 6, "http://localhost/")
+	p := NewP0dWithValues(8, 7, 6, "http://localhost/", "")
 
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
@@ -72,17 +72,17 @@ func TestNewP0dWithValues(t *testing.T) {
 }
 
 func TestLogBootstrap(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 	p.logBootstrap()
 }
 
 func TestLogSummary(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 	p.logSummary("1 minute")
 }
 
 func TestInitProgressBar(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 	pb := p.initProgressBar()
 	if pb == nil {
 		t.Error("progress bar not initialised")
@@ -90,7 +90,7 @@ func TestInitProgressBar(t *testing.T) {
 }
 
 func TestDoReqAtmpt(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")
@@ -108,19 +108,19 @@ func TestDoReqAtmpt(t *testing.T) {
 
 	//then wait for signal from completed reqAtmpt.
 	ra := <-ras
-	if ra.ResponseCode != 200 {
+	if ra.ResCode != 200 {
 		t.Error("should have returned response code 200")
 	}
-	if ra.ResponseBytes != 125 {
+	if ra.ResBytes != 125 {
 		t.Error("should have returned 125 Bytes")
 	}
-	if ra.ResponseError != "" {
+	if ra.ResErr != "" {
 		t.Error("should not have errored")
 	}
 }
 
 func TestRace(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml")
+	p := NewP0dFromFile("./config_get.yml", "")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")

@@ -16,12 +16,12 @@ func TestUpdateStats(t *testing.T) {
 	}
 
 	g := ReqAtmpt{
-		Start:         time.Date(2000, 1, 1, 0, 0, 1, 0, time.UTC),
-		Stop:          time.Date(2000, 1, 1, 0, 0, 3, 0, time.UTC),
-		Elapsed:       time.Duration(2 * time.Second),
-		ResponseCode:  200,
-		ResponseBytes: 1000,
-		ResponseError: "",
+		Start:    time.Date(2000, 1, 1, 0, 0, 1, 0, time.UTC),
+		Stop:     time.Date(2000, 1, 1, 0, 0, 3, 0, time.UTC),
+		ElpsdNs:  time.Duration(2 * time.Second),
+		ResCode:  200,
+		ResBytes: 1000,
+		ResErr:   "",
 	}
 
 	now := time.Date(2000, 1, 1, 0, 0, 4, 0, time.UTC)
@@ -63,12 +63,12 @@ func TestUpdateStats(t *testing.T) {
 	//we update the stats now with more data, this time 1s req but it's 6s down the timeline
 	//this request has an error
 	g2 := ReqAtmpt{
-		Start:         time.Date(2000, 1, 1, 0, 0, 5, 0, time.UTC),
-		Stop:          time.Date(2000, 1, 1, 0, 0, 6, 0, time.UTC),
-		Elapsed:       time.Duration(1 * time.Second),
-		ResponseCode:  201,
-		ResponseBytes: 1000,
-		ResponseError: "i'm so bad",
+		Start:    time.Date(2000, 1, 1, 0, 0, 5, 0, time.UTC),
+		Stop:     time.Date(2000, 1, 1, 0, 0, 6, 0, time.UTC),
+		ElpsdNs:  time.Duration(1 * time.Second),
+		ResCode:  201,
+		ResBytes: 1000,
+		ResErr:   "i'm so bad",
 	}
 
 	s.update(g2, now, cfg)

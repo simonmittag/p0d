@@ -24,6 +24,7 @@ func main() {
 	initLogger()
 	mode := Test
 	C := flag.String("C", "", "load configuration from yml file")
+	O := flag.String("O", "", "save detailed JSON output to file")
 	t := flag.Int("t", 1, "amount of parallel execution threads")
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
@@ -41,10 +42,10 @@ func main() {
 
 	switch mode {
 	case Test:
-		pod := p0d.NewP0dWithValues(*t, *c, *d, *u)
+		pod := p0d.NewP0dWithValues(*t, *c, *d, *u, *O)
 		pod.Race()
 	case File:
-		pod := p0d.NewP0dFromFile(*C)
+		pod := p0d.NewP0dFromFile(*C, *O)
 		pod.Race()
 	case Version:
 		printVersion()

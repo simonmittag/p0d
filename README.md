@@ -25,6 +25,8 @@ p0d -h
 ```
 
 ## Usage
+
+### With cli args
 ```
 λ p0d -h
   Usage of p0d:
@@ -40,6 +42,32 @@ p0d -h
         url to use
   -v    print p0d version
 ```
+
+### With a config file
+`pod -c config.yml`
+
+```
+---
+exec:
+  mode: binary
+  durationSeconds: 30
+  threads: 128
+  connections: 128
+  logsampling: 0.1
+req:
+  method: GET
+  url: http://localhost:60083/mse6/get
+  headers:
+    - Accept-Encoding: "identity"
+res:
+  code: 200
+```
+
+#### logsampling
+ratio between 0 and 1 of requests to keep when saving results to disk with -O
+
+#### mode
+`binary` or `decimal` for MiB or MB units in reporting
 
 ## Contributions
 
