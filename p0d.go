@@ -179,8 +179,12 @@ Main:
 }
 
 func (p *P0d) logBootstrap() {
-	if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
-		msg := fmt.Sprintf("found OS open file limits [%d] too low, recommend reducing connections [%d] or changing this with ulimit -n",
+	if p.OsMaxOpenFiles == 0 {
+		msg := fmt.Sprintf("unable to determine OS open file limits")
+		log.Warn().Msg(msg)
+	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
+		msg := fmt.Sprintf("found OS open file limits [%d] too low, "+
+			"recommend reducing connections [%d] or changing OS behaviour with ulimit -n",
 			p.OsMaxOpenFiles,
 			p.Config.Exec.Connections)
 		log.Warn().Msg(msg)
