@@ -63,11 +63,14 @@ res:
   code: 200
 ```
 
-#### logsampling
-ratio between 0 and 1 of requests to keep when saving results to disk with -O
+#### exec.logsampling
+ratio between `0` and `1` of requests to keep when saving results to disk with -O
 
-#### mode
+#### exec.mode
 `binary` or `decimal` for MiB or MB units in reporting
+
+#### spacingMillis
+artificial latency in milliseconds introduced between sending individual requests (per thread)
 
 ## Contributions
 
