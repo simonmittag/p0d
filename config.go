@@ -152,8 +152,11 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	if cfg.Exec.Connections == UNLIMITED {
-		log.Debug().Msg("transport connection pool disabled")
-		t.(*http.Transport).DisableKeepAlives = true
+		t1, ok := t.(*http.Transport)
+		if ok {
+			t1.DisableKeepAlives = true
+			log.Debug().Msg("transport connection pool disabled for http/1.1")
+		}
 	}
 	return &http.Client{
 		Transport: t,
