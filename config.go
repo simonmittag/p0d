@@ -39,12 +39,12 @@ type Exec struct {
 	DialTimeoutSeconds int64
 	LogSampling        float32
 	SpacingMillis      int64
-	HttpVersion        string
+	HttpVersion        float32
 }
 
 const UNLIMITED int = -1
 
-var httpVers map[string]string = map[string]string{"1.1": "1.1", "2": "2"}
+var httpVers = map[float32]float32{1.1: 1.1, 2: 2}
 
 func loadConfigFromFile(fileName string) *Config {
 	log.Debug().Msgf("loading config from file '%s'", fileName)
@@ -79,8 +79,8 @@ func (cfg *Config) validate() *Config {
 	if cfg.Exec.DialTimeoutSeconds == 0 {
 		cfg.Exec.DialTimeoutSeconds = 3
 	}
-	if cfg.Exec.HttpVersion == "" {
-		cfg.Exec.HttpVersion = "1.1"
+	if cfg.Exec.HttpVersion == 0 {
+		cfg.Exec.HttpVersion = 1.1
 	} else {
 		if _, ok := httpVers[cfg.Exec.HttpVersion]; !ok {
 			msg := fmt.Sprintf("bad http version %s, must be one of [1.1, 2], exiting...", cfg.Exec.HttpVersion)
