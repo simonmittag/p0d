@@ -198,7 +198,7 @@ func (p *P0d) logBootstrap() {
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("preferred http version: %s", fmt.Sprintf("%.2f", p.Config.Exec.HttpVersion))
+	log.Info().Msgf("preferred http version: %s", fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion))
 	log.Info().Msgf("parallel execution thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
 	log.Info().Msgf("max TCP conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
 	log.Info().Msgf("network dial timeout (inc. TLS handshake): %s",

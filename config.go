@@ -44,7 +44,10 @@ type Exec struct {
 
 const UNLIMITED int = -1
 
-var httpVers = map[float32]float32{1.1: 1.1, 2: 2}
+const http11 = 1.1
+const http2 = 2
+
+var httpVers = map[float32]float32{http11: http11, http2: http2}
 
 func loadConfigFromFile(fileName string) *Config {
 	log.Debug().Msgf("loading config from file '%s'", fileName)
@@ -80,10 +83,10 @@ func (cfg *Config) validate() *Config {
 		cfg.Exec.DialTimeoutSeconds = 3
 	}
 	if cfg.Exec.HttpVersion == 0 {
-		cfg.Exec.HttpVersion = 1.1
+		cfg.Exec.HttpVersion = http11
 	} else {
 		if _, ok := httpVers[cfg.Exec.HttpVersion]; !ok {
-			msg := fmt.Sprintf("bad http version %s, must be one of [1.1, 2], exiting...", cfg.Exec.HttpVersion)
+			msg := fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", fmt.Sprintf("%.1f", cfg.Exec.HttpVersion))
 			log.Fatal().Msg(msg)
 			panic(msg)
 		}
@@ -127,6 +130,11 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		MaxIdleConns:        cfg.Exec.Connections,
 		MaxIdleConnsPerHost: cfg.Exec.Connections,
 		IdleConnTimeout:     3 * time.Second,
+	}
+
+	//force http1.1 for TLS connections
+	if cfg.Exec.HttpVersion == http11 {
+		t.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
