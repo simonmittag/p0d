@@ -1,14 +1,14 @@
 ---
 exec:
   mode: binary
-  durationSeconds: 30
+  durationSeconds: 1
   threads: 128
   connections: 128
   logsampling: 0.1
   httpVersion: 2
 req:
   method: GET
-  url: http://localhost:60083/mse6/get
+  url: https://localhost:8443/about
   headers:
     - Accept-Encoding: "identity"
 res:

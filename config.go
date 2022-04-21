@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/net/http2"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -45,9 +46,9 @@ type Exec struct {
 const UNLIMITED int = -1
 
 const http11 = 1.1
-const http2 = 2
+const http20 = 2
 
-var httpVers = map[float32]float32{http11: http11, http2: http2}
+var httpVers = map[float32]float32{http11: http11, http20: http20}
 
 func loadConfigFromFile(fileName string) *Config {
 	log.Debug().Msgf("loading config from file '%s'", fileName)
@@ -114,35 +115,46 @@ func (cfg *Config) validate() *Config {
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {
-	t := &http.Transport{
-		DisableCompression: true,
-		DialContext: (&net.Dialer{
-			//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
-			Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-		}).DialContext,
-		//TLS handshake timeout is the same as connection timeout
-		TLSHandshakeTimeout: 3,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-
-		MaxConnsPerHost:     cfg.Exec.Connections,
-		MaxIdleConns:        cfg.Exec.Connections,
-		MaxIdleConnsPerHost: cfg.Exec.Connections,
-		IdleConnTimeout:     3 * time.Second,
+	tlsc := &tls.Config{
+		MinVersion:         tls.VersionTLS11,
+		MaxVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: true,
 	}
+
+	var t http.RoundTripper
 
 	//force http1.1 for TLS connections
 	if cfg.Exec.HttpVersion == http11 {
-		t.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		t = &http.Transport{
+			DisableCompression: true,
+			DialContext: (&net.Dialer{
+				//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
+				Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			}).DialContext,
+			//TLS handshake timeout is the same as connection timeout
+			TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			TLSClientConfig:     tlsc,
+			MaxConnsPerHost:     cfg.Exec.Connections,
+			MaxIdleConns:        cfg.Exec.Connections,
+			MaxIdleConnsPerHost: cfg.Exec.Connections,
+			IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+		}
+	} else {
+		t = &http2.Transport{
+			DisableCompression: true,
+			TLSClientConfig:    tlsc,
+			ReadIdleTimeout:    time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			PingTimeout:        time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			WriteByteTimeout:   time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		}
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	if cfg.Exec.Connections == UNLIMITED {
 		log.Debug().Msg("transport connection pool disabled")
-		t.DisableKeepAlives = true
+		x := t.(http.Transport)
 	}
-
 	return &http.Client{
 		Transport: t,
 	}
