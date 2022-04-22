@@ -6,7 +6,7 @@
 [![Codeclimate Test Coverage](https://api.codeclimate.com/v1/badges/06a7484f009ea48a3832/test_coverage)](https://codeclimate.com/github/simonmittag/p0d/test_coverage)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Version](https://img.shields.io/badge/version-0.2.1-orange)](https://github.com/simonmittag/p0d)
+[![Version](https://img.shields.io/badge/version-0.2.2-orange)](https://github.com/simonmittag/p0d)
 
 ## What is p0d?
 ![](p0d.png)
@@ -38,6 +38,8 @@ p0d -h
         maximum amount of parallel TCP connections used (default 1)
   -d int
         time in seconds to run p0d (default 10)
+  -h string
+        http version to use. Values are 1.1 and 2 (which works only with TLS URLs). Defaults to 1.1
   -t int
         amount of parallel execution threads (default 1)
   -u string
