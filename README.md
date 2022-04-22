@@ -39,7 +39,8 @@ p0d -h
   -d int
         time in seconds to run p0d (default 10)
   -h string
-        http version to use. Values are 1.1 and 2 (which works only with TLS URLs). Defaults to 1.1
+        http version to use. Values are 1.1 and 2 (which works only with TLS URLs). 
+        Defaults to 1.1
   -t int
         amount of parallel execution threads (default 1)
   -u string
