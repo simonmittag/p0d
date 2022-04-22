@@ -45,7 +45,8 @@ p0d -h
         amount of parallel execution threads (default 1)
   -u string
         url to use
-  -v    print p0d version
+  -v    
+        print p0d version
 ```
 
 ### With config file
