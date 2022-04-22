@@ -76,25 +76,25 @@ res:
 http request method, usually one of `GET`, `PUT`, `POST`, or `DELETE`
 
 #### req.url
-server url to run against
+server url to run against. Must be supplied.
 
 #### req.headers
 list of headers to include in the request. use this to inject i.e. authentication
 
 #### res.code
-the expected http resonse code. if not matched, request counts as failed in test summary
+the expected http resonse code. if not matched, request counts as failed in test summary. Defaults to `200`
 
 #### exec.logsampling
-ratio between 0 and 1 of requests to keep when saving results to disk with -O
+ratio between `0.0` and `1.0` of requests to keep when saving results to disk with `-O`
 
 #### exec.mode
 `binary` or `decimal` for MiB or MB units in reporting
 
 #### exec.spacingMillis
-artificial spacing in milliseconds, introduced before sending each request.
+artificial spacing in milliseconds, introduced before sending each request. Defaults to `0`
 
 #### exec.httpVersion
-preferred http version. Allowable values are 1.1. and 2. Defaults to 1.1. Please note that HTTP/2 is only
+preferred http version. Allowable values are `1.1`. and `2`. Defaults to `1.1`. Please note that HTTP/2 is only
 supported using TLS. Http version is negotiated, not absolute and HTTP/2 may fall back to HTTP/1.1
 
 ## Contributions
