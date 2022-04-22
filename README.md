@@ -47,7 +47,7 @@ p0d -h
   -v    print p0d version
 ```
 
-### With a config file
+### With config file
 `pod -c config.yml`
 
 ```
@@ -63,9 +63,24 @@ req:
   url: http://localhost:60083/mse6/get
   headers:
     - Accept-Encoding: "identity"
+  body: '
+   { "your": "body" }
+  '
 res:
   code: 200
 ```
+
+#### req.method
+http request method, usually one of `GET`, `PUT`, `POST`, or `DELETE`
+
+#### req.url
+server url to run against
+
+#### req.headers
+list of headers to include in the request. use this to inject i.e. authentication
+
+#### res.code
+the expected http resonse code. if not matched, request counts as failed in test summary
 
 #### exec.logsampling
 ratio between 0 and 1 of requests to keep when saving results to disk with -O
