@@ -121,43 +121,32 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		InsecureSkipVerify: true,
 	}
 
-	var t http.RoundTripper
-
-	//force http1.1 for TLS connections
-	if cfg.Exec.HttpVersion == http11 {
-		t = &http.Transport{
-			DisableCompression: true,
-			DialContext: (&net.Dialer{
-				//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
-				Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-			}).DialContext,
-			//TLS handshake timeout is the same as connection timeout
-			TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-			TLSClientConfig:     tlsc,
-			MaxConnsPerHost:     cfg.Exec.Connections,
-			MaxIdleConns:        cfg.Exec.Connections,
-			MaxIdleConnsPerHost: cfg.Exec.Connections,
-			IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-			TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-		}
-	} else {
-		t = &http2.Transport{
-			DisableCompression: true,
-			TLSClientConfig:    tlsc,
-			ReadIdleTimeout:    time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-			PingTimeout:        time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-			WriteByteTimeout:   time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-		}
+	t := &http.Transport{
+		DisableCompression: true,
+		DialContext: (&net.Dialer{
+			//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
+			Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		}).DialContext,
+		//TLS handshake timeout is the same as connection timeout
+		TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		TLSClientConfig:     tlsc,
+		MaxConnsPerHost:     cfg.Exec.Connections,
+		MaxIdleConns:        cfg.Exec.Connections,
+		MaxIdleConnsPerHost: cfg.Exec.Connections,
+		IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	if cfg.Exec.Connections == UNLIMITED {
-		t1, ok := t.(*http.Transport)
-		if ok {
-			t1.DisableKeepAlives = true
-			log.Debug().Msg("transport connection pool disabled for http/1.1")
-		}
+		t.DisableKeepAlives = true
+		log.Debug().Msg("transport connection pool disabled for http/1.1")
 	}
+
+	if cfg.Exec.HttpVersion == http20 {
+		http2.ConfigureTransport(t)
+	}
+
 	return &http.Client{
 		Transport: t,
 	}
