@@ -29,6 +29,8 @@ func main() {
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	u := flag.String("u", "", "url to use")
+	h := flag.String("h", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+
+		"TLS URLs). Defaults to 1.1")
 	v := flag.Bool("v", false, "print p0d version")
 	flag.Parse()
 
@@ -42,7 +44,7 @@ func main() {
 
 	switch mode {
 	case Test:
-		pod := p0d.NewP0dWithValues(*t, *c, *d, *u, *O)
+		pod := p0d.NewP0dWithValues(*t, *c, *d, *u, *h, *O)
 		pod.Race()
 	case File:
 		pod := p0d.NewP0dFromFile(*C, *O)

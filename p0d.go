@@ -12,11 +12,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
-const Version string = "v0.2.1"
+const Version string = "v0.2.2"
 
 type P0d struct {
 	ID             string
@@ -43,7 +44,9 @@ func createRunId() string {
 	return fmt.Sprintf("p0d-%s-race-%s", Version, uid)
 }
 
-func NewP0dWithValues(t int, c int, d int, u string, o string) *P0d {
+func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
+	hv, _ := strconv.ParseFloat(h, 32)
+
 	cfg := Config{
 		Req: Req{
 			Method: "GET",
@@ -53,6 +56,7 @@ func NewP0dWithValues(t int, c int, d int, u string, o string) *P0d {
 			Threads:         t,
 			DurationSeconds: d,
 			Connections:     c,
+			HttpVersion:     float32(hv),
 		},
 	}
 	cfg = *cfg.validate()
@@ -194,6 +198,7 @@ func (p *P0d) logBootstrap() {
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s",
 		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
+	log.Info().Msgf("preferred http version: %s", fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion))
 	log.Info().Msgf("parallel execution thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
 	log.Info().Msgf("max TCP conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
 	log.Info().Msgf("network dial timeout (inc. TLS handshake): %s",

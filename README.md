@@ -74,6 +74,10 @@ ratio between 0 and 1 of requests to keep when saving results to disk with -O
 #### exec.spacingMillis
 artificial spacing in milliseconds, introduced before sending each request.
 
+#### exec.httpVersion
+preferred http version. Allowable values are 1.1. and 2. Defaults to 1.1. Please note that HTTP/2 is only
+supported using TLS. Http version is negotiated, not absolute and HTTP/2 may fall back to HTTP/1.1
+
 ## Contributions
 
 The j8a team welcomes all [contributors](https://github.com/simonmittag/p0d/blob/master/CONTRIBUTING.md). Everyone
