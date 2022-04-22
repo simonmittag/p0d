@@ -39,7 +39,7 @@ func TestNewP0dFromFile(t *testing.T) {
 }
 
 func TestNewP0dWithValues(t *testing.T) {
-	p := NewP0dWithValues(8, 7, 6, "http://localhost/", "")
+	p := NewP0dWithValues(8, 7, 6, "http://localhost/", "1.1", "")
 
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
@@ -55,6 +55,9 @@ func TestNewP0dWithValues(t *testing.T) {
 	}
 	if p.Config.Exec.Threads != 8 {
 		t.Error("incorrect threads")
+	}
+	if p.Config.Exec.HttpVersion != 1.1 {
+		t.Error("incorrect http version")
 	}
 	if p.Config.Req.Method != "GET" {
 		t.Error("incorrect method")
