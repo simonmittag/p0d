@@ -76,7 +76,7 @@ res:
 http request method, usually one of `GET`, `PUT`, `POST`, or `DELETE`
 
 #### req.url
-server url to run against. Must be supplied.
+upstream resource url. Must be supplied.
 
 #### req.headers
 list of headers to include in the request. use this to inject i.e. authentication
@@ -92,6 +92,9 @@ ratio between `0.0` and `1.0` of requests to keep when saving results to disk wi
 
 #### exec.durationsSeconds
 run pod for `n` seconds. Defaults to `10`
+
+#### exec.dialTimeoutSeconds
+give up connecting to upstream resource after `n` seconds. Defaults to `3`
 
 #### exec.threads
 use `n` threads to make parallel calls to the server. Defaults to `1`
