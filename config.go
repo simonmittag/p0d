@@ -75,7 +75,7 @@ func loadConfigFromFile(fileName string) *Config {
 
 func (cfg *Config) validate() *Config {
 	if cfg.Exec.Connections == 0 {
-		cfg.Exec.Connections = UNLIMITED
+		cfg.Exec.Connections = 16
 	}
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10

@@ -90,6 +90,17 @@ ratio between `0.0` and `1.0` of requests to keep when saving results to disk wi
 #### exec.mode
 `binary` or `decimal` for MiB or MB units in reporting
 
+#### exec.durationsSeconds
+run pod for `n` seconds. Defaults to `10`
+
+#### exec.threads
+use `n` threads to make parallel calls to the server. Defaults to `1`
+
+#### exec.connections
+use a pool of maximum `n` connections. Defaults to `16`. Make sure your OS supports sufficient open file descriptors
+before settings this to a very high value. Set this to a similar size as `exec.threads` to avoid large amounts of
+threads competing for few connection resources.
+
 #### exec.spacingMillis
 artificial spacing in milliseconds, introduced before sending each request. Defaults to `0`
 
