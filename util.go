@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"fmt"
+	. "github.com/logrusorgru/aurora"
 	"strconv"
 	"syscall"
 )
@@ -13,8 +14,8 @@ func getUlimit() (string, int64) {
 		return "not determined", 0
 	} else {
 		return fmt.Sprintf("current [%s] max [%s]",
-				FGroup(int64(rLimit.Cur)),
-				FGroup(int64(rLimit.Max))),
+				Yellow(FGroup(int64(rLimit.Cur))),
+				Yellow(FGroup(int64(rLimit.Max)))),
 			int64(rLimit.Cur)
 	}
 }

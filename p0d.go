@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
-	"github.com/k0kubun/go-ansi"
+	. "github.com/logrusorgru/aurora"
 	"github.com/rs/zerolog/log"
-	"github.com/schollz/progressbar/v3"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -139,14 +139,31 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	bar := p.initProgressBar()
+	line1 := uilive.New()
+	line2 := line1.Newline()
+	line1.Start()
+
+	//values updated by Main loop below, run this is goroutine so it doesn't block channel receiving.
+	go func() {
+		for {
+			now := time.Now().Format(time.Kitchen)
+			var e Value = nil
+			if p.Stats.SumErrors == 0 {
+				e = Cyan(p.Stats.SumErrors)
+			} else {
+				e = Red(p.Stats.SumErrors)
+			}
+			fmt.Fprintf(line1, "%s requests: %d\n", Gray(10, now), Cyan(p.Stats.ReqAtmpts))
+			fmt.Fprintf(line2, "%s errors: %d\n", Gray(10, now), e)
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
 
 Main:
 	for {
 		select {
 		case <-end:
-			//just in case the progress bar didn't update to 100% cleanly with the exit signal
-			bar.Set(p.Config.Exec.DurationSeconds)
+			line1.Stop()
 
 			p.Stop = time.Now()
 			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
@@ -162,8 +179,6 @@ Main:
 			break Main
 		case ra := <-ras:
 			now := time.Now()
-			bar.Set(int(now.Sub(p.Start).Seconds()))
-
 			p.Stats.update(ra, now, p.Config)
 
 			if len(p.Output) > 0 {
@@ -184,12 +199,12 @@ Main:
 
 func (p *P0d) logBootstrap() {
 	if p.OsMaxOpenFiles == 0 {
-		msg := fmt.Sprintf("unable to determine OS open file limits")
-		log.Warn().Msg(msg)
+		msg := Yellow(fmt.Sprintf("unable to determine OS open file limits"))
+		log.Warn().Msgf("%v", msg)
 	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
 		msg := fmt.Sprintf("found OS max open file limit %s too low, reduce connections from %s",
-			FGroup(int64(p.OsMaxOpenFiles)),
-			FGroup(int64(p.Config.Exec.Connections)))
+			Red(FGroup(int64(p.OsMaxOpenFiles))),
+			Red(FGroup(int64(p.Config.Exec.Connections))))
 		log.Warn().Msg(msg)
 	} else {
 		ul, _ := getUlimit()
@@ -197,29 +212,24 @@ func (p *P0d) logBootstrap() {
 	}
 	log.Info().Msgf("%s starting...", p.ID)
 	log.Info().Msgf("duration: %s",
-		durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String())
-	log.Info().Msgf("preferred http version: %s", fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion))
-	log.Info().Msgf("parallel execution thread(s): %s", FGroup(int64(p.Config.Exec.Threads)))
-	log.Info().Msgf("max TCP conn(s): %s", FGroup(int64(p.Config.Exec.Connections)))
+		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
+	log.Info().Msgf("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
+	log.Info().Msgf("parallel execution thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
+	log.Info().Msgf("max TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Connections))))
 	log.Info().Msgf("network dial timeout (inc. TLS handshake): %s",
-		durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String())
+		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
 		log.Info().Msgf("request spacing: %s",
-			durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String())
+			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		log.Info().Msgf("log sampling rate: %s%%", FGroup(int64(100*p.Config.Exec.LogSampling)))
+		log.Info().Msgf("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
 	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
 }
 
 func (p *P0d) logSummary(elapsed string) {
-	//fix issue with progress bar, force newline
-	os.Stdout.Write([]byte("\n"))
-	log.Info().Msg("")
-	log.Info().Msg("|--------------|")
-	log.Info().Msg("| Test summary |")
-	log.Info().Msg("|--------------|")
+	log.Info().Msg("Test summary")
 	log.Info().Msgf("ID: %s", p.ID)
 	log.Info().Msgf("total runtime: %s", elapsed)
 	log.Info().Msgf("total HTTP req: %s", FGroup(int64(p.Stats.ReqAtmpts)))
@@ -300,20 +310,4 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 
 		ras <- ra
 	}
-}
-
-func (p *P0d) initProgressBar() *progressbar.ProgressBar {
-	start := time.Now().Format(time.Kitchen)
-	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(30),
-		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[cyan]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
 }
