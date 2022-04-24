@@ -7,6 +7,7 @@ import (
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
 	. "github.com/logrusorgru/aurora"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -109,7 +110,7 @@ func (p *P0d) Race() {
 
 	checkWrite := func(e error) {
 		if e != nil {
-			log("unable to write to output file %s, exiting...", p.Output)
+			logv(Red("unable to write to output file %s, exiting..."), p.Output)
 			os.Exit(-1)
 		}
 	}
@@ -140,27 +141,12 @@ func (p *P0d) Race() {
 
 	l1 := uilive.New()
 	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
-	l1.RefreshInterval = time.Hour * 24
+	l1.RefreshInterval = time.Hour * 24 * 30
 	l1.Start()
 
 	go func() {
 		for {
-			fmt.Fprintf(l1, timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-			fmt.Fprintf(l1.Newline(), timefmt("mean HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-			fmt.Fprintf(l1.Newline(), timefmt("mean req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-			fmt.Fprintf(l1.Newline(), timefmt("total bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-			fmt.Fprintf(l1.Newline(), timefmt("mean bytes throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
-
-			tte := fmt.Sprintf("%s/%s (%s%%)",
-				FGroup(int64(p.Stats.SumErrors)),
-				FGroup(int64(p.Stats.ReqAtmpts)),
-				fmt.Sprintf("%.2f", p.Stats.PctErrors))
-			if p.Stats.SumErrors > 0 {
-				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v"), Red(tte))
-			} else {
-				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v"), Cyan(tte))
-			}
-			l1.Flush()
+			livelog(l1, p)
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -169,11 +155,11 @@ Main:
 	for {
 		select {
 		case <-end:
-			l1.Flush()
+			livelog(l1, p)
 			l1.Stop()
 
 			p.Stop = time.Now()
-			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
+			p.logSummary()
 
 			if len(p.Output) > 0 {
 				j, je := json.MarshalIndent(p, prefix, indent)
@@ -202,6 +188,31 @@ Main:
 			}
 		}
 	}
+}
+
+func livelog(l1 *uilive.Writer, p *P0d) {
+	fmt.Fprintf(l1, timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+	fmt.Fprintf(l1.Newline(), timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+	fmt.Fprintf(l1.Newline(), timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(l1.Newline(), timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+	fmt.Fprintf(l1.Newline(), timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+
+	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
+	fmt.Fprintf(l1.Newline(), timefmt("matching HTTP response codes: %v"), mrc)
+
+	tte := fmt.Sprintf("%s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumErrors)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
+	if p.Stats.SumErrors > 0 {
+		fmt.Fprintf(l1.Newline(), timefmt("transport errors: %v"), Red(tte))
+	} else {
+		fmt.Fprintf(l1.Newline(), timefmt(" transport errors: %v"), Cyan(tte))
+	}
+	l1.Flush()
 }
 
 func (p *P0d) logBootstrap() {
@@ -235,21 +246,18 @@ func (p *P0d) logBootstrap() {
 	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
-func (p *P0d) logSummary(elapsed string) {
-	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes)))
-	log("matching HTTP response codes: %v", mrc)
-	log("total runtime: %s", Cyan(elapsed))
-
+func (p *P0d) logSummary() {
 	for k, v := range p.Stats.ErrorTypes {
+		pctv := 100 * (float32(v) / float32(p.Stats.ReqAtmpts))
 		err := Red(fmt.Sprintf("  - error: [%s]: %s/%s (%s%%)", k,
 			FGroup(int64(v)),
 			FGroup(int64(p.Stats.ReqAtmpts)),
-			fmt.Sprintf("%.2f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
+			fmt.Sprintf("%.2f", math.Ceil(float64(pctv*100))/100)))
 		logv(err)
 	}
+
+	elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
+	log("total runtime: %s", Cyan(elapsed))
 
 	if p.Stats.SumErrors != 0 {
 		os.Exit(-1)
