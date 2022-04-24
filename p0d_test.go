@@ -81,7 +81,7 @@ func TestLogBootstrap(t *testing.T) {
 
 func TestLogSummary(t *testing.T) {
 	p := NewP0dFromFile("./config_get.yml", "")
-	p.logSummary("1 minute")
+	p.logSummary()
 }
 
 func TestDoReqAtmpt(t *testing.T) {
