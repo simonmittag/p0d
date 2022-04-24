@@ -139,22 +139,42 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	line1 := uilive.New()
-	line2 := line1.Newline()
-	line1.Start()
+	l1 := uilive.New()
+	l2 := l1.Newline()
+	l3 := l1.Newline()
+	l4 := l1.Newline()
+	l5 := l1.Newline()
+	l6 := l1.Newline()
+	l1.Start()
 
 	//values updated by Main loop below, run this is goroutine so it doesn't block channel receiving.
+	timefmt := func(s string) string {
+		now := time.Now().Format(time.Kitchen)
+		return fmt.Sprintf("%s %s", Gray(8, now), s)
+	}
+
 	go func() {
 		for {
-			now := time.Now().Format(time.Kitchen)
-			var e Value = nil
-			if p.Stats.SumErrors == 0 {
-				e = Cyan(p.Stats.SumErrors)
+
+			fmt.Fprintf(l1, timefmt("total HTTP req: %s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+			fmt.Fprintf(l2, timefmt("mean HTTP req throughput: %s%s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+
+			mrl := durafmt.Parse(p.Stats.MeanElpsdAtmptLatency).LimitFirstN(2).String()
+			fmt.Fprintf(l3, timefmt("mean req latency: %v\n"), Cyan(mrl))
+
+			fmt.Fprintf(l4, timefmt("total bytes read: %s\n"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+			fmt.Fprintf(l5, timefmt("mean bytes throughput: %s%s\n"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+
+			tte := fmt.Sprintf("%s/%s (%s%%)",
+				FGroup(int64(p.Stats.SumErrors)),
+				FGroup(int64(p.Stats.ReqAtmpts)),
+				fmt.Sprintf("%.4f", p.Stats.PctErrors))
+			if p.Stats.SumErrors > 0 {
+				fmt.Fprintf(l6, timefmt("total transport errors: %v\n"), Red(tte))
 			} else {
-				e = Red(p.Stats.SumErrors)
+				fmt.Fprintf(l6, timefmt("total transport errors: %v\n"), Cyan(tte))
 			}
-			fmt.Fprintf(line1, "%s requests: %d\n", Gray(10, now), Cyan(p.Stats.ReqAtmpts))
-			fmt.Fprintf(line2, "%s errors: %d\n", Gray(10, now), e)
+
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -163,7 +183,7 @@ Main:
 	for {
 		select {
 		case <-end:
-			line1.Stop()
+			l1.Stop()
 
 			p.Stop = time.Now()
 			p.logSummary(durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String())
@@ -225,32 +245,24 @@ func (p *P0d) logBootstrap() {
 	if len(p.Output) > 0 {
 		log.Info().Msgf("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	log.Info().Msgf("%s %s", p.Config.Req.Method, p.Config.Req.Url)
+	log.Info().Msgf("=> %s %s", Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
 func (p *P0d) logSummary(elapsed string) {
-	log.Info().Msg("Test summary")
-	log.Info().Msgf("ID: %s", p.ID)
-	log.Info().Msgf("total runtime: %s", elapsed)
-	log.Info().Msgf("total HTTP req: %s", FGroup(int64(p.Stats.ReqAtmpts)))
-	log.Info().Msgf("mean HTTP req throughput: %s/s", FGroup(int64(p.Stats.ReqAtmptsSec)))
-	log.Info().Msgf("mean req latency: %s", durafmt.Parse(time.Duration(p.Stats.MeanElpsdAtmptLatency)).LimitFirstN(2).String())
-	log.Info().Msgf("total bytes read: %s", p.Config.byteCount(p.Stats.SumBytes))
-	log.Info().Msgf("mean bytes throughput: %s/s", p.Config.byteCount(int64(p.Stats.MeanBytesSec)))
-	log.Info().Msgf("matching HTTP response codes: %s/%s (%s%%)",
+	log.Info().Msgf("total runtime: %s", Cyan(elapsed))
+
+	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes))
-	log.Info().Msgf("total transport errors: %s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumErrors)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", p.Stats.PctErrors))
+		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes)))
+	log.Info().Msgf("matching HTTP response codes: %v", mrc)
+
 	for k, v := range p.Stats.ErrorTypes {
 		log.Info().Msgf("  - error: [%s]: %s/%s (%s%%)",
 			k,
-			FGroup(int64(v)),
-			FGroup(int64(p.Stats.ReqAtmpts)),
-			fmt.Sprintf("%.2f", 100*float32(v)/float32(p.Stats.ReqAtmpts)))
+			Red(FGroup(int64(v))),
+			Cyan(FGroup(int64(p.Stats.ReqAtmpts))),
+			Red(fmt.Sprintf("%.4f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
 	}
 
 	if p.Stats.SumErrors != 0 {
