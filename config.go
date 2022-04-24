@@ -51,7 +51,7 @@ const http20 = 2
 var httpVers = map[float32]float32{http11: http11, http20: http20}
 
 func loadConfigFromFile(fileName string) *Config {
-	log("loading config from file '%s'", fileName)
+	log("loading config from file '%s'", Yellow(fileName))
 	cfgPanic := func(err error) {
 		if err != nil {
 			msg := Red(fmt.Sprintf("unable to load config from %s, exiting...", fileName))
