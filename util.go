@@ -2,9 +2,24 @@ package p0d
 
 import (
 	"fmt"
+	. "github.com/logrusorgru/aurora"
 	"strconv"
 	"syscall"
+	"time"
 )
+
+func logv(args ...any) {
+	log("%v", args...)
+}
+
+func log(s string, args ...any) {
+	fmt.Printf(timefmt(s), args...)
+}
+
+func timefmt(s string) string {
+	now := time.Now().Format(time.Kitchen)
+	return fmt.Sprintf("%s %s\n", Gray(8, now), s)
+}
 
 func getUlimit() (string, int64) {
 	var rLimit syscall.Rlimit
@@ -13,8 +28,8 @@ func getUlimit() (string, int64) {
 		return "not determined", 0
 	} else {
 		return fmt.Sprintf("current [%s] max [%s]",
-				FGroup(int64(rLimit.Cur)),
-				FGroup(int64(rLimit.Max))),
+				Yellow(FGroup(int64(rLimit.Cur))),
+				Yellow(FGroup(int64(rLimit.Max)))),
 			int64(rLimit.Cur)
 	}
 }
