@@ -140,6 +140,8 @@ func (p *P0d) Race() {
 	}
 
 	l1 := uilive.New()
+	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
+	l1.RefreshInterval = time.Hour * 24
 	l1.Start()
 
 	//values updated by Main loop below, run this is goroutine so it doesn't block channel receiving.
