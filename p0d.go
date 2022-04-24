@@ -154,7 +154,7 @@ func (p *P0d) Race() {
 			tte := fmt.Sprintf("%s/%s (%s%%)",
 				FGroup(int64(p.Stats.SumErrors)),
 				FGroup(int64(p.Stats.ReqAtmpts)),
-				fmt.Sprintf("%.4f", p.Stats.PctErrors))
+				fmt.Sprintf("%.2f", p.Stats.PctErrors))
 			if p.Stats.SumErrors > 0 {
 				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v"), Red(tte))
 			} else {
