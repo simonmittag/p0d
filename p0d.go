@@ -109,7 +109,7 @@ func (p *P0d) Race() {
 
 	checkWrite := func(e error) {
 		if e != nil {
-			fmt.Printf(timefmt("unable to write to output file %s, exiting..."), p.Output)
+			log("unable to write to output file %s, exiting...", p.Output)
 			os.Exit(-1)
 		}
 	}
@@ -207,30 +207,30 @@ Main:
 func (p *P0d) logBootstrap() {
 	if p.OsMaxOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to determine OS open file limits"))
-		fmt.Printf(timefmt("%v"), msg)
+		log("%v", msg)
 	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
 		msg := fmt.Sprintf("found OS max open file limit %s too low, reduce connections from %s",
 			Red(FGroup(int64(p.OsMaxOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Connections))))
-		fmt.Printf(timefmt(msg))
+		log(msg)
 	} else {
 		ul, _ := getUlimit()
-		fmt.Printf(timefmt("found OS open file limits (ulimit): %s"), ul)
+		log("found OS open file limits (ulimit): %s", ul)
 	}
-	fmt.Printf(timefmt("%s starting..."), p.ID)
-	fmt.Printf(timefmt("duration: %s"),
+	log("%s starting...", p.ID)
+	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
-	fmt.Printf(timefmt("preferred http version: %s"), Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
-	fmt.Printf(timefmt("parallel execution thread(s): %s"), Yellow(FGroup(int64(p.Config.Exec.Threads))))
-	fmt.Printf(timefmt("max TCP conn(s): %s"), Yellow(FGroup(int64(p.Config.Exec.Connections))))
-	fmt.Printf(timefmt("network dial timeout (inc. TLS handshake): %s"),
+	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
+	log("parallel execution thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
+	log("max TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Connections))))
+	log("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		fmt.Printf(timefmt("request spacing: %s"),
+		log("request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		fmt.Printf(timefmt("log sampling rate: %s%s"), Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		log("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
 	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
@@ -240,15 +240,15 @@ func (p *P0d) logSummary(elapsed string) {
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes)))
-	fmt.Printf(timefmt("matching HTTP response codes: %v"), mrc)
-	fmt.Printf(timefmt("total runtime: %s"), Cyan(elapsed))
+	log("matching HTTP response codes: %v", mrc)
+	log("total runtime: %s", Cyan(elapsed))
 
 	for k, v := range p.Stats.ErrorTypes {
 		err := Red(fmt.Sprintf("  - error: [%s]: %s/%s (%s%%)", k,
 			FGroup(int64(v)),
 			FGroup(int64(p.Stats.ReqAtmpts)),
-			fmt.Sprintf("%.4f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
-		fmt.Printf(timefmt("%v"), err)
+			fmt.Sprintf("%.2f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
+		logv(err)
 	}
 
 	if p.Stats.SumErrors != 0 {

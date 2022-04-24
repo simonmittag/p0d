@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+func logv(args ...any) {
+	log("%v", args...)
+}
+
+func log(s string, args ...any) {
+	fmt.Printf(timefmt(s), args...)
+}
+
 func timefmt(s string) string {
 	now := time.Now().Format(time.Kitchen)
 	return fmt.Sprintf("%s %s\n", Gray(8, now), s)
