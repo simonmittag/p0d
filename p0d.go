@@ -200,7 +200,7 @@ func livelog(l1 *uilive.Writer, p *P0d) {
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
+		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
 	fmt.Fprintf(l1.Newline(), timefmt("matching HTTP response codes: %v"), mrc)
 
 	tte := fmt.Sprintf("%s/%s (%s%%)",
@@ -210,7 +210,7 @@ func livelog(l1 *uilive.Writer, p *P0d) {
 	if p.Stats.SumErrors > 0 {
 		fmt.Fprintf(l1.Newline(), timefmt("transport errors: %v"), Red(tte))
 	} else {
-		fmt.Fprintf(l1.Newline(), timefmt(" transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(l1.Newline(), timefmt("transport errors: %v"), Cyan(tte))
 	}
 	l1.Flush()
 }
@@ -256,7 +256,12 @@ func (p *P0d) logSummary() {
 		logv(err)
 	}
 
-	elapsed := durafmt.Parse(p.Stop.Sub(p.Start)).LimitFirstN(2).String()
+	elpsd := p.Stop.Sub(p.Start)
+	li := 2
+	if elpsd < time.Minute {
+		li = 1
+	}
+	elapsed := durafmt.Parse(elpsd).LimitFirstN(li).String()
 	log("total runtime: %s", Cyan(elapsed))
 
 	if p.Stats.SumErrors != 0 {
