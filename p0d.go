@@ -256,12 +256,8 @@ func (p *P0d) logSummary() {
 		logv(err)
 	}
 
-	elpsd := p.Stop.Sub(p.Start)
-	li := 2
-	if elpsd < time.Minute {
-		li = 1
-	}
-	elapsed := durafmt.Parse(elpsd).LimitFirstN(li).String()
+	//truncate runtime as seconds
+	elapsed := durafmt.Parse(p.Stop.Sub(p.Start).Truncate(time.Second)).LimitFirstN(2).String()
 	log("total runtime: %s", Cyan(elapsed))
 
 	if p.Stats.SumErrors != 0 {
