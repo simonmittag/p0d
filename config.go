@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
-	"github.com/rs/zerolog/log"
+	. "github.com/logrusorgru/aurora"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"net"
@@ -51,11 +51,11 @@ const http20 = 2
 var httpVers = map[float32]float32{http11: http11, http20: http20}
 
 func loadConfigFromFile(fileName string) *Config {
-	log.Debug().Msgf("loading config from file '%s'", fileName)
+	fmt.Printf(timefmt("loading config from file '%s'"), fileName)
 	cfgPanic := func(err error) {
 		if err != nil {
-			msg := fmt.Sprintf("unable to load config from %s, exiting...", fileName)
-			log.Fatal().Msg(msg)
+			msg := Red(fmt.Sprintf("unable to load config from %s, exiting...", fileName))
+			fmt.Printf(timefmt("%v"), msg)
 			panic(msg)
 		}
 	}
@@ -87,8 +87,8 @@ func (cfg *Config) validate() *Config {
 		cfg.Exec.HttpVersion = http11
 	} else {
 		if _, ok := httpVers[cfg.Exec.HttpVersion]; !ok {
-			msg := fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", fmt.Sprintf("%.1f", cfg.Exec.HttpVersion))
-			log.Fatal().Msg(msg)
+			msg := Red(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", fmt.Sprintf("%.1f", cfg.Exec.HttpVersion)))
+			fmt.Printf(timefmt("%v"), msg)
 			panic(msg)
 		}
 	}
@@ -107,8 +107,8 @@ func (cfg *Config) validate() *Config {
 		cfg.Res.Code = 200
 	}
 	if cfg.Req.Url == "" {
-		msg := "request url not specified, exiting..."
-		log.Fatal().Msg(msg)
+		msg := Red("request url not specified, exiting...")
+		fmt.Printf(timefmt("%v"), msg)
 		panic(msg)
 	}
 	return cfg
@@ -140,7 +140,7 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
 	if cfg.Exec.Connections == UNLIMITED {
 		t.DisableKeepAlives = true
-		log.Debug().Msg("transport connection pool disabled for http/1.1")
+		fmt.Printf(timefmt("%v"), Yellow("transport connection pool disabled for http/1.1"))
 	}
 
 	if cfg.Exec.HttpVersion == http20 {

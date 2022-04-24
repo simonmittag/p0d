@@ -8,7 +8,6 @@ require (
 	github.com/gosuri/uilive v0.0.4
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/logrusorgru/aurora v2.0.3+incompatible
-	github.com/rs/zerolog v1.26.1
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 )
 

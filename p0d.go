@@ -7,7 +7,6 @@ import (
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
 	. "github.com/logrusorgru/aurora"
-	"github.com/rs/zerolog/log"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -110,7 +109,7 @@ func (p *P0d) Race() {
 
 	checkWrite := func(e error) {
 		if e != nil {
-			log.Fatal().Msgf("unable to write to output file %s, exiting...", p.Output)
+			fmt.Printf(timefmt("unable to write to output file %s, exiting..."), p.Output)
 			os.Exit(-1)
 		}
 	}
@@ -144,28 +143,22 @@ func (p *P0d) Race() {
 	l1.RefreshInterval = time.Hour * 24
 	l1.Start()
 
-	//values updated by Main loop below, run this is goroutine so it doesn't block channel receiving.
-	timefmt := func(s string) string {
-		now := time.Now().Format(time.Kitchen)
-		return fmt.Sprintf("%s %s", Gray(8, now), s)
-	}
-
 	go func() {
 		for {
-			fmt.Fprintf(l1, timefmt("total HTTP req: %s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-			fmt.Fprintf(l1.Newline(), timefmt("mean HTTP req throughput: %s%s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-			fmt.Fprintf(l1.Newline(), timefmt("mean req latency: %s%s\n"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-			fmt.Fprintf(l1.Newline(), timefmt("total bytes read: %s\n"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-			fmt.Fprintf(l1.Newline(), timefmt("mean bytes throughput: %s%s\n"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+			fmt.Fprintf(l1, timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+			fmt.Fprintf(l1.Newline(), timefmt("mean HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+			fmt.Fprintf(l1.Newline(), timefmt("mean req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+			fmt.Fprintf(l1.Newline(), timefmt("total bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+			fmt.Fprintf(l1.Newline(), timefmt("mean bytes throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
 
 			tte := fmt.Sprintf("%s/%s (%s%%)",
 				FGroup(int64(p.Stats.SumErrors)),
 				FGroup(int64(p.Stats.ReqAtmpts)),
 				fmt.Sprintf("%.4f", p.Stats.PctErrors))
 			if p.Stats.SumErrors > 0 {
-				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v\n"), Red(tte))
+				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v"), Red(tte))
 			} else {
-				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v\n"), Cyan(tte))
+				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v"), Cyan(tte))
 			}
 			l1.Flush()
 			time.Sleep(time.Millisecond * 100)
@@ -213,33 +206,33 @@ Main:
 
 func (p *P0d) logBootstrap() {
 	if p.OsMaxOpenFiles == 0 {
-		msg := Yellow(fmt.Sprintf("unable to determine OS open file limits"))
-		log.Warn().Msgf("%v", msg)
+		msg := Red(fmt.Sprintf("unable to determine OS open file limits"))
+		fmt.Printf(timefmt("%v"), msg)
 	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
 		msg := fmt.Sprintf("found OS max open file limit %s too low, reduce connections from %s",
 			Red(FGroup(int64(p.OsMaxOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Connections))))
-		log.Warn().Msg(msg)
+		fmt.Printf(timefmt(msg))
 	} else {
 		ul, _ := getUlimit()
-		log.Info().Msgf("found OS open file limits (ulimit): %s", ul)
+		fmt.Printf(timefmt("found OS open file limits (ulimit): %s"), ul)
 	}
-	log.Info().Msgf("%s starting...", p.ID)
-	log.Info().Msgf("duration: %s",
+	fmt.Printf(timefmt("%s starting..."), p.ID)
+	fmt.Printf(timefmt("duration: %s"),
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
-	log.Info().Msgf("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
-	log.Info().Msgf("parallel execution thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
-	log.Info().Msgf("max TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Connections))))
-	log.Info().Msgf("network dial timeout (inc. TLS handshake): %s",
+	fmt.Printf(timefmt("preferred http version: %s"), Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
+	fmt.Printf(timefmt("parallel execution thread(s): %s"), Yellow(FGroup(int64(p.Config.Exec.Threads))))
+	fmt.Printf(timefmt("max TCP conn(s): %s"), Yellow(FGroup(int64(p.Config.Exec.Connections))))
+	fmt.Printf(timefmt("network dial timeout (inc. TLS handshake): %s"),
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		log.Info().Msgf("request spacing: %s",
+		fmt.Printf(timefmt("request spacing: %s"),
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		log.Info().Msgf("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		fmt.Printf(timefmt("log sampling rate: %s%s"), Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	log.Info().Msgf("=> %s %s", Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
 func (p *P0d) logSummary(elapsed string) {
@@ -247,15 +240,15 @@ func (p *P0d) logSummary(elapsed string) {
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes)))
-	log.Info().Msgf("matching HTTP response codes: %v", mrc)
-	log.Info().Msgf("total runtime: %s", Cyan(elapsed))
+	fmt.Printf(timefmt("matching HTTP response codes: %v"), mrc)
+	fmt.Printf(timefmt("total runtime: %s"), Cyan(elapsed))
 
 	for k, v := range p.Stats.ErrorTypes {
 		err := Red(fmt.Sprintf("  - error: [%s]: %s/%s (%s%%)", k,
 			FGroup(int64(v)),
 			FGroup(int64(p.Stats.ReqAtmpts)),
 			fmt.Sprintf("%.4f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
-		log.Info().Msgf("%v", err)
+		fmt.Printf(timefmt("%v"), err)
 	}
 
 	if p.Stats.SumErrors != 0 {

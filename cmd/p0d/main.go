@@ -3,11 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/simonmittag/p0d"
-	"os"
-	"strings"
 )
 
 type Mode uint8
@@ -21,7 +17,6 @@ const (
 var pattern = "/mse6/"
 
 func main() {
-	initLogger()
 	mode := Test
 	C := flag.String("C", "", "load configuration from yml file")
 	O := flag.String("O", "", "save detailed JSON output to file")
@@ -56,27 +51,4 @@ func main() {
 
 func printVersion() {
 	fmt.Printf("p0d %s\n", p0d.Version)
-}
-
-func initLogger() {
-	logLevel := strings.ToUpper(os.Getenv("LOGLEVEL"))
-	w := zerolog.ConsoleWriter{
-		Out:     os.Stderr,
-		NoColor: false,
-		FormatLevel: func(i interface{}) string {
-			return ""
-		},
-	}
-
-	log.Logger = log.Output(w)
-	switch logLevel {
-	case "DEBUG":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "INFO":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "WARN":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	default:
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	}
 }
