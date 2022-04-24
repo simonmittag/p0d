@@ -84,14 +84,6 @@ func TestLogSummary(t *testing.T) {
 	p.logSummary("1 minute")
 }
 
-func TestInitProgressBar(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
-	pb := p.initProgressBar()
-	if pb == nil {
-		t.Error("progress bar not initialised")
-	}
-}
-
 func TestDoReqAtmpt(t *testing.T) {
 	p := NewP0dFromFile("./config_get.yml", "")
 

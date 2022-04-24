@@ -140,11 +140,6 @@ func (p *P0d) Race() {
 	}
 
 	l1 := uilive.New()
-	l2 := l1.Newline()
-	l3 := l1.Newline()
-	l4 := l1.Newline()
-	l5 := l1.Newline()
-	l6 := l1.Newline()
 	l1.Start()
 
 	//values updated by Main loop below, run this is goroutine so it doesn't block channel receiving.
@@ -155,26 +150,22 @@ func (p *P0d) Race() {
 
 	go func() {
 		for {
-
 			fmt.Fprintf(l1, timefmt("total HTTP req: %s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-			fmt.Fprintf(l2, timefmt("mean HTTP req throughput: %s%s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-
-			mrl := durafmt.Parse(p.Stats.MeanElpsdAtmptLatency).LimitFirstN(2).String()
-			fmt.Fprintf(l3, timefmt("mean req latency: %v\n"), Cyan(mrl))
-
-			fmt.Fprintf(l4, timefmt("total bytes read: %s\n"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-			fmt.Fprintf(l5, timefmt("mean bytes throughput: %s%s\n"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+			fmt.Fprintf(l1.Newline(), timefmt("mean HTTP req throughput: %s%s\n"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+			fmt.Fprintf(l1.Newline(), timefmt("mean req latency: %s%s\n"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+			fmt.Fprintf(l1.Newline(), timefmt("total bytes read: %s\n"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+			fmt.Fprintf(l1.Newline(), timefmt("mean bytes throughput: %s%s\n"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
 
 			tte := fmt.Sprintf("%s/%s (%s%%)",
 				FGroup(int64(p.Stats.SumErrors)),
 				FGroup(int64(p.Stats.ReqAtmpts)),
 				fmt.Sprintf("%.4f", p.Stats.PctErrors))
 			if p.Stats.SumErrors > 0 {
-				fmt.Fprintf(l6, timefmt("total transport errors: %v\n"), Red(tte))
+				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v\n"), Red(tte))
 			} else {
-				fmt.Fprintf(l6, timefmt("total transport errors: %v\n"), Cyan(tte))
+				fmt.Fprintf(l1.Newline(), timefmt("total transport errors: %v\n"), Cyan(tte))
 			}
-
+			l1.Flush()
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -183,6 +174,7 @@ Main:
 	for {
 		select {
 		case <-end:
+			l1.Flush()
 			l1.Stop()
 
 			p.Stop = time.Now()
@@ -249,20 +241,19 @@ func (p *P0d) logBootstrap() {
 }
 
 func (p *P0d) logSummary(elapsed string) {
-	log.Info().Msgf("total runtime: %s", Cyan(elapsed))
-
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", p.Stats.PctMatchingResponseCodes)))
 	log.Info().Msgf("matching HTTP response codes: %v", mrc)
+	log.Info().Msgf("total runtime: %s", Cyan(elapsed))
 
 	for k, v := range p.Stats.ErrorTypes {
-		log.Info().Msgf("  - error: [%s]: %s/%s (%s%%)",
-			k,
-			Red(FGroup(int64(v))),
-			Cyan(FGroup(int64(p.Stats.ReqAtmpts))),
-			Red(fmt.Sprintf("%.4f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
+		err := Red(fmt.Sprintf("  - error: [%s]: %s/%s (%s%%)", k,
+			FGroup(int64(v)),
+			FGroup(int64(p.Stats.ReqAtmpts)),
+			fmt.Sprintf("%.4f", 100*float32(v)/float32(p.Stats.ReqAtmpts))))
+		log.Info().Msgf("%v", err)
 	}
 
 	if p.Stats.SumErrors != 0 {
