@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.2.2"
+const Version string = "v0.2.3"
 
 type P0d struct {
 	ID             string
