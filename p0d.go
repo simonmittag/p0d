@@ -12,8 +12,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -28,6 +30,7 @@ type P0d struct {
 	Stop           time.Time
 	Output         string
 	OsMaxOpenFiles int64
+	Interupt       chan os.Signal
 }
 
 type ReqAtmpt struct {
@@ -63,6 +66,10 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 
 	start := time.Now()
 	_, ul := getUlimit()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+
 	return &P0d{
 		ID:     createRunId(),
 		Config: cfg,
@@ -74,6 +81,7 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		Start:          start,
 		Output:         o,
 		OsMaxOpenFiles: ul,
+		Interupt:       sigs,
 	}
 }
 
@@ -83,6 +91,10 @@ func NewP0dFromFile(f string, o string) *P0d {
 
 	start := time.Now()
 	_, ul := getUlimit()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+
 	return &P0d{
 		ID:     createRunId(),
 		Config: *cfg,
@@ -94,6 +106,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Start:          time.Now(),
 		Output:         o,
 		OsMaxOpenFiles: ul,
+		Interupt:       sigs,
 	}
 }
 
@@ -110,8 +123,9 @@ func (p *P0d) Race() {
 
 	checkWrite := func(e error) {
 		if e != nil {
-			logv(Red("unable to write to output file %s, exiting..."), p.Output)
-			os.Exit(-1)
+			msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
+			logv(msg)
+			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		}
 	}
 
@@ -154,21 +168,12 @@ func (p *P0d) Race() {
 Main:
 	for {
 		select {
+		case <-p.Interupt:
+			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
+			logv(Red("exiting early..."))
+			os.Exit(-1)
 		case <-end:
-			livelog(l1, p)
-			l1.Stop()
-
-			p.Stop = time.Now()
-			p.logSummary()
-
-			if len(p.Output) > 0 {
-				j, je := json.MarshalIndent(p, prefix, indent)
-				checkWrite(je)
-				_, we := ow.Write(j)
-				checkWrite(we)
-				_, we = ow.Write(aclose)
-				checkWrite(we)
-			}
+			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
 			break Main
 		case ra := <-ras:
 			now := time.Now()
@@ -187,6 +192,27 @@ Main:
 				}
 			}
 		}
+	}
+
+	if p.Stats.SumErrors != 0 {
+		os.Exit(-1)
+	}
+}
+
+func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkWrite func(e error), ow *os.File, aclose []byte) {
+	livelog(l1, p)
+	l1.Stop()
+
+	p.Stop = time.Now()
+	p.logSummary()
+
+	if len(p.Output) > 0 {
+		j, je := json.MarshalIndent(p, prefix, indent)
+		checkWrite(je)
+		_, we := ow.Write(j)
+		checkWrite(we)
+		_, we = ow.Write(aclose)
+		checkWrite(we)
 	}
 }
 
@@ -259,10 +285,6 @@ func (p *P0d) logSummary() {
 	//truncate runtime as seconds
 	elapsed := durafmt.Parse(p.Stop.Sub(p.Start).Truncate(time.Second)).LimitFirstN(2).String()
 	log("total runtime: %s", Cyan(elapsed))
-
-	if p.Stats.SumErrors != 0 {
-		os.Exit(-1)
-	}
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
