@@ -30,7 +30,7 @@ type P0d struct {
 	Stop           time.Time
 	Output         string
 	OsMaxOpenFiles int64
-	Interupt       chan os.Signal
+	interupt       chan os.Signal
 }
 
 type ReqAtmpt struct {
@@ -81,7 +81,7 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		Start:          start,
 		Output:         o,
 		OsMaxOpenFiles: ul,
-		Interupt:       sigs,
+		interupt:       sigs,
 	}
 }
 
@@ -106,7 +106,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Start:          time.Now(),
 		Output:         o,
 		OsMaxOpenFiles: ul,
-		Interupt:       sigs,
+		interupt:       sigs,
 	}
 }
 
@@ -123,6 +123,7 @@ func (p *P0d) Race() {
 
 	checkWrite := func(e error) {
 		if e != nil {
+			fmt.Println(e)
 			msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
 			logv(msg)
 			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
@@ -168,7 +169,7 @@ func (p *P0d) Race() {
 Main:
 	for {
 		select {
-		case <-p.Interupt:
+		case <-p.interupt:
 			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
 			logv(Red("exiting early..."))
 			os.Exit(-1)
