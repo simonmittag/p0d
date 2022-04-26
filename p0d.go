@@ -199,8 +199,7 @@ Main:
 		}
 	}
 
-	log("%s done", Yellow(p.ID))
-	log("exiting...")
+	log("done")
 }
 
 func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkWrite func(e error), ow *os.File, aclose []byte) {
@@ -211,7 +210,7 @@ func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkW
 	p.logSummary()
 
 	if len(p.Output) > 0 {
-		log("finalizing log file %s", p.Output)
+		log("finalizing log file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, prefix, indent)
 		checkWrite(je)
 		_, we := ow.Write(j)
@@ -259,7 +258,7 @@ func (p *P0d) logBootstrap() {
 		ul, _ := getUlimit()
 		log("found OS open file limits (ulimit): %s", ul)
 	}
-	log("%s starting...", Blue(p.ID))
+	log("%s starting", Yellow(p.ID))
 	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
