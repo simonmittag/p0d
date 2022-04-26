@@ -30,7 +30,8 @@ type P0d struct {
 	Stop           time.Time
 	Output         string
 	OsMaxOpenFiles int64
-	interupt       chan os.Signal
+	interrupt      chan os.Signal
+	Interrupted    bool
 }
 
 type ReqAtmpt struct {
@@ -81,7 +82,8 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		Start:          start,
 		Output:         o,
 		OsMaxOpenFiles: ul,
-		interupt:       sigs,
+		interrupt:      sigs,
+		Interrupted:    false,
 	}
 }
 
@@ -106,7 +108,8 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Start:          time.Now(),
 		Output:         o,
 		OsMaxOpenFiles: ul,
-		interupt:       sigs,
+		interrupt:      sigs,
+		Interrupted:    false,
 	}
 }
 
@@ -169,10 +172,11 @@ func (p *P0d) Race() {
 Main:
 	for {
 		select {
-		case <-p.interupt:
+		case <-p.interrupt:
+			log("%s aborted", Yellow(p.ID))
 			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
-			logv(Red("exiting early..."))
-			os.Exit(-1)
+			p.Interrupted = true
+			break Main
 		case <-end:
 			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
 			break Main
@@ -195,9 +199,8 @@ Main:
 		}
 	}
 
-	if p.Stats.SumErrors != 0 {
-		os.Exit(-1)
-	}
+	log("%s done", Yellow(p.ID))
+	log("exiting...")
 }
 
 func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkWrite func(e error), ow *os.File, aclose []byte) {
@@ -208,6 +211,7 @@ func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkW
 	p.logSummary()
 
 	if len(p.Output) > 0 {
+		log("finalizing log file %s", p.Output)
 		j, je := json.MarshalIndent(p, prefix, indent)
 		checkWrite(je)
 		_, we := ow.Write(j)

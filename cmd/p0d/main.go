@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/simonmittag/p0d"
+	"os"
 )
 
 type Mode uint8
@@ -37,16 +38,22 @@ func main() {
 		mode = Version
 	}
 
+	var pod *p0d.P0d
 	switch mode {
 	case Test:
-		pod := p0d.NewP0dWithValues(*t, *c, *d, *u, *h, *O)
+		pod = p0d.NewP0dWithValues(*t, *c, *d, *u, *h, *O)
 		pod.Race()
 	case File:
-		pod := p0d.NewP0dFromFile(*C, *O)
+		pod = p0d.NewP0dFromFile(*C, *O)
 		pod.Race()
 	case Version:
 		printVersion()
 	}
+
+	if pod.Stats.SumErrors > 0 || pod.Interrupted {
+		os.Exit(-1)
+	}
+	os.Exit(0)
 }
 
 func printVersion() {
