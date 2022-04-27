@@ -13,7 +13,7 @@
 
 p0d is a cli based performance testing tool, designed to stress a remote API server with large volumes of HTTP traffic. 
 Available options include, HTTP/1.1 or HTTP/2, specifying custom headers, request body and desired response code. p0d
-allows live monitoring of traffic, including errors and produces detailed logs.As of 04/22, p0d is beta grade software under 
+allows live monitoring of traffic, including errors and produces detailed logs. As of 04/22, p0d is beta grade software under 
 active development. 
 
 ## Up and running
