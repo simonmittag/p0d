@@ -38,7 +38,7 @@ Run in http/2 mode against local server and save output to `log.json`
 
 ### Cli args
 ```
-λ p0d v0.2.3
+λ p0d v0.2.4
  usage: p0d [-f flag] [URL]
 
  flags:
