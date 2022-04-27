@@ -2,6 +2,15 @@ package p0d
 
 import "testing"
 
+func TestEmptyConfigValidate(t *testing.T) {
+	cfg := Config{
+		Req: Req{
+			Url: "http://localhost:8080/blah",
+		},
+	}
+	cfg.validate()
+}
+
 func TestLoadConfigFromFile(t *testing.T) {
 	cfg := loadConfigFromFile("./config_get.yml")
 
