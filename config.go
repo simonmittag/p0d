@@ -88,7 +88,7 @@ func (cfg *Config) validate() *Config {
 	} else {
 		if _, ok := httpVers[cfg.Exec.HttpVersion]; !ok {
 			hv := fmt.Sprintf("%.1f", cfg.Exec.HttpVersion)
-			cfg.panic(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0]", hv))
+			cfg.panic(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", hv))
 		}
 	}
 	if cfg.Exec.LogSampling <= 0 || cfg.Exec.LogSampling > 1 {
