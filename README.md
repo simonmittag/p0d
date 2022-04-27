@@ -11,9 +11,10 @@
 ## What is p0d?
 ![](p0d.png)
 
-p0d is a go based HTTP performance testing tool. It can be configured via cli or yml. p0d
-runs HTTP/1.1 and HTTP/2 requests in parallel against your server and provides detailed
-reports on the output. p0d is alpha grade software under active development.
+p0d is a cli based performance testing tool, designed to stress a remote API server with large volumes of HTTP traffic. 
+Available options include, HTTP/1.1 or HTTP/2, specifying custom headers, request body and desired response code. p0d
+allows live monitoring of traffic, including errors and produces detailed logs.As of 04/22, p0d is beta grade software under 
+active development. 
 
 ## Up and running
 
