@@ -173,7 +173,9 @@ Main:
 	for {
 		select {
 		case <-p.interrupt:
-			log("%s aborted", Yellow(p.ID))
+			//because CTRL+C is crazy and messes up our live log by two spaces
+			fmt.Fprintf(l1, "\x1b[%dD", 2)
+
 			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
 			p.Interrupted = true
 			break Main
