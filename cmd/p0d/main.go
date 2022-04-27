@@ -34,10 +34,10 @@ func main() {
 
 	flag.Parse()
 
-	if *h || (flag.NFlag() == 0 && len(flag.Args()) == 0) {
-		mode = Usage
-	} else if *v {
+	if *v {
 		mode = Version
+	} else if *h || (flag.NFlag() == 0 && len(flag.Args()) == 0) {
+		mode = Usage
 	} else if len(*C) > 0 {
 		mode = File
 	} else {
@@ -59,10 +59,11 @@ func main() {
 		printVersion()
 	}
 
-	if pod == nil || pod.Stats.SumErrors > 0 || pod.Interrupted {
-		os.Exit(-1)
+	if mode == Cli || mode == File {
+		if pod == nil || pod.Stats.SumErrors > 0 || pod.Interrupted {
+			os.Exit(-1)
+		}
 	}
-	os.Exit(0)
 }
 
 func printVersion() {
