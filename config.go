@@ -87,7 +87,8 @@ func (cfg *Config) validate() *Config {
 		cfg.Exec.HttpVersion = http11
 	} else {
 		if _, ok := httpVers[cfg.Exec.HttpVersion]; !ok {
-			cfg.panic(Red(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", fmt.Sprintf("%.1f", cfg.Exec.HttpVersion))))
+			hv := fmt.Sprintf("%.1f", cfg.Exec.HttpVersion)
+			cfg.panic(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0]", hv))
 		}
 	}
 	if cfg.Exec.LogSampling <= 0 || cfg.Exec.LogSampling > 1 {
@@ -105,7 +106,7 @@ func (cfg *Config) validate() *Config {
 		cfg.Res.Code = 200
 	}
 	if cfg.Req.Url == "" {
-		cfg.panic(Red("request url not specified, exiting..."))
+		cfg.panic("request url not specified")
 	}
 	return cfg
 }
@@ -157,7 +158,7 @@ func (cfg Config) byteCount(b int64) string {
 	}
 }
 
-func (cfg Config) panic(msg Value) {
-	logv(msg)
+func (cfg Config) panic(msg string) {
+	logv(Red(msg))
 	panic(msg)
 }
