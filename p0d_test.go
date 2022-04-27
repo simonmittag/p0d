@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -124,7 +125,29 @@ func TestRace(t *testing.T) {
 
 	//we hack the config's URL to point at our mock server so we can execute the test
 	p.Config.Req.Url = svr.URL
+	p.Config.Exec.DurationSeconds = 1
+	p.Race()
+
+}
+
+func TestRaceWithOutput(t *testing.T) {
+	p := NewP0dFromFile("./config_get.yml", "")
+
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "123456789")
+	}))
+	defer svr.Close()
+
+	//we hack the config's URL to point at our mock server so we can execute the test
+	p.Config.Req.Url = svr.URL
+
+	//test this only shortly
+	p.Config.Exec.DurationSeconds = 1
+	p.Output = "testoutput.json"
 	p.Config.Exec.DurationSeconds = 3
 	p.Race()
+
+	//for good measure
+	os.Remove(p.Output)
 
 }
