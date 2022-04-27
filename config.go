@@ -74,14 +74,20 @@ func loadConfigFromFile(fileName string) *Config {
 }
 
 func (cfg *Config) validate() *Config {
+	if cfg.Exec.Threads == 0 {
+		cfg.Exec.Threads = 1
+	}
 	if cfg.Exec.Connections == 0 {
-		cfg.Exec.Connections = 16
+		cfg.Exec.Connections = 1
 	}
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10
 	}
 	if cfg.Exec.DialTimeoutSeconds == 0 {
 		cfg.Exec.DialTimeoutSeconds = 3
+	}
+	if cfg.Exec.Mode == "" {
+		cfg.Exec.Mode = "decimal"
 	}
 	if cfg.Exec.HttpVersion == 0 {
 		cfg.Exec.HttpVersion = http11
