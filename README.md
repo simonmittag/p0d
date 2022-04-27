@@ -24,34 +24,46 @@ go install github.com/simonmittag/p0d/cmd/p0d &&
 p0d -h
 ```
 
-## Usage
+## Usage Samples
 
-### With cli args
+Run for 30 seconds with 10 parallel connections/threads against local server
 ```
-λ p0d -h
-  Usage of p0d:
+λ p0d -d 30 -t 10 -c 10 http://localhost:8080/path
+```
+
+Run in http/2 mode against local server and save output to `log.json`
+```
+λ p0d -H 2 -O log.json http://localhost:8080/path
+```
+
+### Cli args
+```
+λ p0d v0.2.3
+ usage: p0d [-f flag] [URL]
+
+ flags:
   -C string
         load configuration from yml file
+  -H string
+        http version to use. Values are 1.1 and 2 (which works only with TLS URLs). Defaults to 1.1 (default "1.1")
   -O string
         save detailed JSON output to file
   -c int
         maximum amount of parallel TCP connections used (default 1)
   -d int
         time in seconds to run p0d (default 10)
-  -h string
-        http version to use. Values are 1.1 and 2 (which works only with TLS URLs). 
-        Defaults to 1.1
+  -h    print usage instructions
   -t int
         amount of parallel execution threads (default 1)
-  -u string
-        url to use
-  -v    
-        print p0d version
+  -v    print version
 ```
 
 ### With config file
-`pod -c config.yml`
+```
+λ p0d -C config_get.yml
+```
 
+####config_get.yml
 ```
 ---
 exec:
@@ -113,6 +125,6 @@ the expected http resonse code. if not matched, request counts as failed in test
 
 ## Contributions
 
-The j8a team welcomes all [contributors](https://github.com/simonmittag/p0d/blob/master/CONTRIBUTING.md). Everyone
+The p0d team welcomes all [contributors](https://github.com/simonmittag/p0d/blob/master/CONTRIBUTING.md). Everyone
 interacting with the project's codebase, issue trackers, chat rooms and mailing lists is expected to follow
 the [code of conduct](https://github.com/simonmittag/p0d/blob/master/CODE_OF_CONDUCT.md)

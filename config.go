@@ -51,12 +51,11 @@ const http20 = 2
 var httpVers = map[float32]float32{http11: http11, http20: http20}
 
 func loadConfigFromFile(fileName string) *Config {
-	log("loading config from file '%s'", Yellow(fileName))
 	cfgPanic := func(err error) {
 		if err != nil {
-			msg := Red(fmt.Sprintf("unable to load config from %s, exiting...", fileName))
+			msg := Red(fmt.Sprintf("unable to load config from '%s', exiting...", fileName))
 			logv(msg)
-			panic(msg)
+			os.Exit(-1)
 		}
 	}
 
@@ -64,6 +63,7 @@ func loadConfigFromFile(fileName string) *Config {
 	defer f.Close()
 	cfgPanic(err)
 
+	log("config loaded from '%s'", Yellow(fileName))
 	yml, _ := ioutil.ReadAll(f)
 	jsn, _ := yaml.YAMLToJSON(yml)
 
@@ -160,5 +160,5 @@ func (cfg Config) byteCount(b int64) string {
 
 func (cfg Config) panic(msg string) {
 	logv(Red(msg))
-	panic(msg)
+	os.Exit(-1)
 }

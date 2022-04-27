@@ -26,15 +26,15 @@ func main() {
 	t := flag.Int("t", 1, "amount of parallel execution threads")
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
-	u := flag.String("u", "", "url to use")
 	H := flag.String("H", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+
 		"TLS URLs). Defaults to 1.1")
 	h := flag.Bool("h", false, "print usage instructions")
 	v := flag.Bool("v", false, "print version")
+	var u string
 
 	flag.Parse()
 
-	if *h || flag.NFlag() == 0 {
+	if *h || (flag.NFlag() == 0 && len(flag.Args()) == 0) {
 		mode = Usage
 	} else if *v {
 		mode = Version
@@ -42,12 +42,13 @@ func main() {
 		mode = File
 	} else {
 		mode = Cli
+		u = flag.Arg(0)
 	}
 
 	var pod *p0d.P0d
 	switch mode {
 	case Cli:
-		pod = p0d.NewP0dWithValues(*t, *c, *d, *u, *H, *O)
+		pod = p0d.NewP0dWithValues(*t, *c, *d, u, *H, *O)
 		pod.Race()
 	case File:
 		pod = p0d.NewP0dFromFile(*C, *O)
@@ -69,6 +70,6 @@ func printVersion() {
 }
 
 func printUsage() {
-	fmt.Printf("p0d %s\n usage:\n", p0d.Version)
+	fmt.Printf("p0d %s\n usage: p0d [-f flag] [URL]\n\n flags:\n", p0d.Version)
 	flag.PrintDefaults()
 }
