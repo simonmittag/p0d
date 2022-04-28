@@ -6,7 +6,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
+	"github.com/k0kubun/go-ansi"
 	. "github.com/logrusorgru/aurora"
+	"github.com/schollz/progressbar/v3"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -134,9 +137,6 @@ func (p *P0d) Race() {
 	}
 
 	var aopen = []byte("[")
-	var aclose = []byte("]")
-	const prefix string = ""
-	const indent string = "  "
 	var comma = []byte(",\n")
 
 	var ow *os.File
@@ -157,30 +157,38 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	l1 := uilive.New()
+	live := make([]io.Writer, 0)
+	l0 := uilive.New()
 	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
-	l1.RefreshInterval = time.Hour * 24 * 30
-	l1.Start()
+	l0.RefreshInterval = time.Hour * 24 * 30
+	l0.Start()
+	live = append(live, l0)
+	for i := 0; i < 6; i++ {
+		live = append(live, live[0].(*uilive.Writer).Newline())
+	}
 
 	go func() {
 		for {
-			livelog(l1, p)
+			livelog(live, p)
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 
+	const prefix string = ""
+	const indent string = "  "
+	const backspace = "\x1b[%dD"
 Main:
 	for {
 		select {
 		case <-p.interrupt:
 			//because CTRL+C is crazy and messes up our live log by two spaces
-			fmt.Fprintf(l1, "\x1b[%dD", 2)
+			fmt.Fprintf(live[0], backspace, 2)
 
-			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
+			stopLogging(live, p, checkWrite, ow)
 			p.Interrupted = true
 			break Main
 		case <-end:
-			stopLogging(l1, p, prefix, indent, checkWrite, ow, aclose)
+			stopLogging(live, p, checkWrite, ow)
 			break Main
 		case ra := <-ras:
 			now := time.Now()
@@ -204,47 +212,49 @@ Main:
 	log("done")
 }
 
-func stopLogging(l1 *uilive.Writer, p *P0d, prefix string, indent string, checkWrite func(e error), ow *os.File, aclose []byte) {
-	livelog(l1, p)
-	l1.Stop()
+func stopLogging(live []io.Writer, p *P0d, checkWrite func(e error), ow *os.File) {
+	livelog(live, p)
+	live[0].(*uilive.Writer).Stop()
 
 	p.Stop = time.Now()
 	p.logSummary()
 
 	if len(p.Output) > 0 {
 		log("finalizing log file '%s'", Yellow(p.Output))
-		j, je := json.MarshalIndent(p, prefix, indent)
+		j, je := json.MarshalIndent(p, "", "  ")
 		checkWrite(je)
 		_, we := ow.Write(j)
 		checkWrite(we)
-		_, we = ow.Write(aclose)
+		_, we = ow.Write([]byte("]"))
 		checkWrite(we)
 	}
 }
 
-func livelog(l1 *uilive.Writer, p *P0d) {
-	fmt.Fprintf(l1, timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-	fmt.Fprintf(l1.Newline(), timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-	fmt.Fprintf(l1.Newline(), timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-	fmt.Fprintf(l1.Newline(), timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-	fmt.Fprintf(l1.Newline(), timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+func livelog(live []io.Writer, p *P0d) {
+	fmt.Fprintf(live[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+	fmt.Fprintf(live[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+	fmt.Fprintf(live[2], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(live[3], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+	fmt.Fprintf(live[4], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
 
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(l1.Newline(), timefmt("matching HTTP response codes: %v"), mrc)
+	fmt.Fprintf(live[5], timefmt("matching HTTP response codes: %v"), mrc)
 
 	tte := fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumErrors)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
 	if p.Stats.SumErrors > 0 {
-		fmt.Fprintf(l1.Newline(), timefmt("transport errors: %v"), Red(tte))
+		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Red(tte))
 	} else {
-		fmt.Fprintf(l1.Newline(), timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Cyan(tte))
 	}
-	l1.Flush()
+
+	//needed to flush
+	live[0].(*uilive.Writer).Flush()
 }
 
 func (p *P0d) logBootstrap() {
@@ -276,6 +286,22 @@ func (p *P0d) logBootstrap() {
 		log("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
 	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+}
+
+func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+	start := p.Start.Format(time.Kitchen)
+	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(75),
+		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[yellow]=[reset]",
+			SaucerHead:    "[cyan]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 }
 
 func (p *P0d) logSummary() {
