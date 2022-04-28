@@ -33,8 +33,8 @@ type P0d struct {
 	Stop           time.Time
 	Output         string
 	OsMaxOpenFiles int64
-	interrupt      chan os.Signal
 	Interrupted    bool
+	interrupt      chan os.Signal
 }
 
 type ReqAtmpt struct {
@@ -144,13 +144,7 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	live := liveWriters(7)
-	go func() {
-		for {
-			p.livelog(live)
-			time.Sleep(time.Millisecond * 100)
-		}
-	}()
+	live := p.initLiveWriters(7)
 
 	const prefix string = ""
 	const indent string = "  "
@@ -161,12 +155,11 @@ Main:
 		case <-p.interrupt:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(live[0], backspace, 2)
-
-			p.stopLogging(live, ow)
+			p.finaliseOutputAndCloseWriters(live, ow)
 			p.Interrupted = true
 			break Main
 		case <-end:
-			p.stopLogging(live, ow)
+			p.finaliseOutputAndCloseWriters(live, ow)
 			break Main
 		case ra := <-ras:
 			now := time.Now()
@@ -188,20 +181,6 @@ Main:
 	}
 
 	log("done")
-}
-
-func liveWriters(n int) []io.Writer {
-	//start live logging
-	live := make([]io.Writer, 0)
-	l0 := uilive.New()
-	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
-	l0.RefreshInterval = time.Hour * 24 * 30
-	l0.Start()
-	live = append(live, l0)
-	for i := 0; i <= n; i++ {
-		live = append(live, live[0].(*uilive.Writer).Newline())
-	}
-	return live
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
@@ -258,8 +237,8 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 	}
 }
 
-func (p *P0d) stopLogging(live []io.Writer, ow *os.File) {
-	p.livelog(live)
+func (p *P0d) finaliseOutputAndCloseWriters(live []io.Writer, ow *os.File) {
+	p.logLive(live)
 	live[0].(*uilive.Writer).Stop()
 
 	p.Stop = time.Now()
@@ -274,33 +253,6 @@ func (p *P0d) stopLogging(live []io.Writer, ow *os.File) {
 		_, we = ow.Write([]byte("]"))
 		p.checkWrite(we)
 	}
-}
-
-func (p *P0d) livelog(live []io.Writer) {
-	fmt.Fprintf(live[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-	fmt.Fprintf(live[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-	fmt.Fprintf(live[2], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-	fmt.Fprintf(live[3], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-	fmt.Fprintf(live[4], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
-
-	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(live[5], timefmt("matching HTTP response codes: %v"), mrc)
-
-	tte := fmt.Sprintf("%s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumErrors)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
-	if p.Stats.SumErrors > 0 {
-		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Red(tte))
-	} else {
-		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Cyan(tte))
-	}
-
-	//needed to flush
-	live[0].(*uilive.Writer).Flush()
 }
 
 func (p *P0d) logBootstrap() {
@@ -334,6 +286,33 @@ func (p *P0d) logBootstrap() {
 	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
+func (p *P0d) logLive(live []io.Writer) {
+	fmt.Fprintf(live[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+	fmt.Fprintf(live[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+	fmt.Fprintf(live[2], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(live[3], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+	fmt.Fprintf(live[4], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+
+	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
+	fmt.Fprintf(live[5], timefmt("matching HTTP response codes: %v"), mrc)
+
+	tte := fmt.Sprintf("%s/%s (%s%%)",
+		FGroup(int64(p.Stats.SumErrors)),
+		FGroup(int64(p.Stats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
+	if p.Stats.SumErrors > 0 {
+		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Red(tte))
+	} else {
+		fmt.Fprintf(live[6], timefmt("transport errors: %v"), Cyan(tte))
+	}
+
+	//needed to flush
+	live[0].(*uilive.Writer).Flush()
+}
+
 func (p *P0d) logSummary() {
 	for k, v := range p.Stats.ErrorTypes {
 		pctv := 100 * (float32(v) / float32(p.Stats.ReqAtmpts))
@@ -347,6 +326,30 @@ func (p *P0d) logSummary() {
 	//truncate runtime as seconds
 	elapsed := durafmt.Parse(p.Stop.Sub(p.Start).Truncate(time.Second)).LimitFirstN(2).String()
 	log("total runtime: %s", Cyan(elapsed))
+}
+
+func (p *P0d) initLiveWriters(n int) []io.Writer {
+	//start live logging
+
+	l0 := uilive.New()
+	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
+	l0.RefreshInterval = time.Hour * 24 * 30
+	l0.Start()
+
+	live := make([]io.Writer, 0)
+	live = append(live, l0)
+	for i := 0; i <= n; i++ {
+		live = append(live, live[0].(*uilive.Writer).Newline())
+	}
+
+	go func() {
+		for {
+			p.logLive(live)
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
+	return live
 }
 
 func (p *P0d) initProgressBar() *progressbar.ProgressBar {
