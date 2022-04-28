@@ -46,11 +46,6 @@ type ReqAtmpt struct {
 	ResErr   string
 }
 
-func createRunId() string {
-	uid, _ := uuid.NewRandom()
-	return fmt.Sprintf("p0d-%s-race-%s", Version, uid)
-}
-
 func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 	hv, _ := strconv.ParseFloat(h, 32)
 
@@ -127,18 +122,10 @@ func (p *P0d) Race() {
 		end <- struct{}{}
 	})
 
-	checkWrite := func(e error) {
-		if e != nil {
-			fmt.Println(e)
-			msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
-			logv(msg)
-			syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		}
-	}
-
 	var aopen = []byte("[")
 	var comma = []byte(",\n")
 
+	//init output
 	var ow *os.File
 	defer func() {
 		if ow != nil {
@@ -148,28 +135,19 @@ func (p *P0d) Race() {
 	var oe error
 	if len(p.Output) > 0 {
 		ow, oe = os.Create(p.Output)
-		checkWrite(oe)
+		p.checkWrite(oe)
 		_, we := ow.Write(aopen)
-		checkWrite(we)
+		p.checkWrite(we)
 	}
 
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go p.doReqAtmpt(ras)
 	}
 
-	live := make([]io.Writer, 0)
-	l0 := uilive.New()
-	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
-	l0.RefreshInterval = time.Hour * 24 * 30
-	l0.Start()
-	live = append(live, l0)
-	for i := 0; i < 6; i++ {
-		live = append(live, live[0].(*uilive.Writer).Newline())
-	}
-
+	live := liveWriters(7)
 	go func() {
 		for {
-			livelog(live, p)
+			p.livelog(live)
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -184,11 +162,11 @@ Main:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(live[0], backspace, 2)
 
-			stopLogging(live, p, checkWrite, ow)
+			p.stopLogging(live, ow)
 			p.Interrupted = true
 			break Main
 		case <-end:
-			stopLogging(live, p, checkWrite, ow)
+			p.stopLogging(live, ow)
 			break Main
 		case ra := <-ras:
 			now := time.Now()
@@ -199,11 +177,11 @@ Main:
 				//only sample a subset of requests
 				if rand.Float32() < p.Config.Exec.LogSampling {
 					j, je := json.MarshalIndent(ra, prefix, indent)
-					checkWrite(je)
+					p.checkWrite(je)
 					_, we := ow.Write(j)
-					checkWrite(we)
+					p.checkWrite(we)
 					_, we = ow.Write(comma)
-					checkWrite(we)
+					p.checkWrite(we)
 				}
 			}
 		}
@@ -212,8 +190,76 @@ Main:
 	log("done")
 }
 
-func stopLogging(live []io.Writer, p *P0d, checkWrite func(e error), ow *os.File) {
-	livelog(live, p)
+func liveWriters(n int) []io.Writer {
+	//start live logging
+	live := make([]io.Writer, 0)
+	l0 := uilive.New()
+	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
+	l0.RefreshInterval = time.Hour * 24 * 30
+	l0.Start()
+	live = append(live, l0)
+	for i := 0; i <= n; i++ {
+		live = append(live, live[0].(*uilive.Writer).Newline())
+	}
+	return live
+}
+
+func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
+	for {
+		//introduce artifical request latency
+		if p.Config.Exec.SpacingMillis > 0 {
+			time.Sleep(time.Duration(p.Config.Exec.SpacingMillis) * time.Millisecond)
+		}
+
+		ra := ReqAtmpt{
+			Start: time.Now(),
+		}
+
+		req, _ := http.NewRequest(p.Config.Req.Method,
+			p.Config.Req.Url,
+			strings.NewReader(p.Config.Req.Body))
+
+		if len(p.Config.Req.Headers) > 0 {
+			for _, h := range p.Config.Req.Headers {
+				for k, v := range h {
+					req.Header.Add(k, v)
+				}
+			}
+		}
+
+		res, e := p.client.Do(req)
+		if res != nil {
+			ra.ResCode = res.StatusCode
+			b, _ := httputil.DumpResponse(res, true)
+			ra.ResBytes = int64(len(b))
+			_ = b
+			res.Body.Close()
+		}
+
+		ra.Stop = time.Now()
+		ra.ElpsdNs = ra.Stop.Sub(ra.Start)
+
+		if e != nil {
+			em := ""
+			for ek, ev := range connectionErrors {
+				if strings.Contains(e.Error(), ek) {
+					em = ev
+				}
+			}
+			if em == "" {
+				em = e.Error()
+			}
+			ra.ResErr = em
+		}
+
+		req = nil
+
+		ras <- ra
+	}
+}
+
+func (p *P0d) stopLogging(live []io.Writer, ow *os.File) {
+	p.livelog(live)
 	live[0].(*uilive.Writer).Stop()
 
 	p.Stop = time.Now()
@@ -222,15 +268,15 @@ func stopLogging(live []io.Writer, p *P0d, checkWrite func(e error), ow *os.File
 	if len(p.Output) > 0 {
 		log("finalizing log file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, "", "  ")
-		checkWrite(je)
+		p.checkWrite(je)
 		_, we := ow.Write(j)
-		checkWrite(we)
+		p.checkWrite(we)
 		_, we = ow.Write([]byte("]"))
-		checkWrite(we)
+		p.checkWrite(we)
 	}
 }
 
-func livelog(live []io.Writer, p *P0d) {
+func (p *P0d) livelog(live []io.Writer) {
 	fmt.Fprintf(live[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
 	fmt.Fprintf(live[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
 	fmt.Fprintf(live[2], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
@@ -288,22 +334,6 @@ func (p *P0d) logBootstrap() {
 	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
-func (p *P0d) initProgressBar() *progressbar.ProgressBar {
-	start := p.Start.Format(time.Kitchen)
-	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(75),
-		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[cyan]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
-}
-
 func (p *P0d) logSummary() {
 	for k, v := range p.Stats.ErrorTypes {
 		pctv := 100 * (float32(v) / float32(p.Stats.ReqAtmpts))
@@ -319,56 +349,32 @@ func (p *P0d) logSummary() {
 	log("total runtime: %s", Cyan(elapsed))
 }
 
-func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
-	for {
-		//introduce artifical request latency
-		if p.Config.Exec.SpacingMillis > 0 {
-			time.Sleep(time.Duration(p.Config.Exec.SpacingMillis) * time.Millisecond)
-		}
+func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+	start := p.Start.Format(time.Kitchen)
+	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
+		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(40),
+		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[yellow]=[reset]",
+			SaucerHead:    "[cyan]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
+}
 
-		ra := ReqAtmpt{
-			Start: time.Now(),
-		}
-
-		req, _ := http.NewRequest(p.Config.Req.Method,
-			p.Config.Req.Url,
-			strings.NewReader(p.Config.Req.Body))
-
-		if len(p.Config.Req.Headers) > 0 {
-			for _, h := range p.Config.Req.Headers {
-				for k, v := range h {
-					req.Header.Add(k, v)
-				}
-			}
-		}
-
-		res, e := p.client.Do(req)
-		if res != nil {
-			ra.ResCode = res.StatusCode
-			b, _ := httputil.DumpResponse(res, true)
-			ra.ResBytes = int64(len(b))
-			_ = b
-			res.Body.Close()
-		}
-
-		ra.Stop = time.Now()
-		ra.ElpsdNs = ra.Stop.Sub(ra.Start)
-
-		if e != nil {
-			em := ""
-			for ek, ev := range connectionErrors {
-				if strings.Contains(e.Error(), ek) {
-					em = ev
-				}
-			}
-			if em == "" {
-				em = e.Error()
-			}
-			ra.ResErr = em
-		}
-
-		req = nil
-
-		ras <- ra
+func (p *P0d) checkWrite(e error) {
+	if e != nil {
+		fmt.Println(e)
+		msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
+		logv(msg)
+		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	}
+}
+
+func createRunId() string {
+	uid, _ := uuid.NewRandom()
+	return fmt.Sprintf("p0d-%s-race-%s", Version, uid)
 }
