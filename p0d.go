@@ -34,7 +34,7 @@ type P0d struct {
 	Output         string
 	outFile        *os.File
 	liveWriters    []io.Writer
-	bar            progressbar.ProgressBar
+	bar            *progressbar.ProgressBar
 	Interrupted    bool
 	interrupt      chan os.Signal
 	OsMaxOpenFiles int64
@@ -269,6 +269,9 @@ func (p *P0d) logBootstrap() {
 }
 
 func (p *P0d) logLive() {
+	elpsd := time.Now().Sub(p.Start).Seconds()
+	p.bar.Set(int(elpsd))
+
 	lw := p.liveWriters
 	fmt.Fprintf(lw[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
 	fmt.Fprintf(lw[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
@@ -351,8 +354,10 @@ func (p *P0d) initLiveWriters(n int) {
 	}
 
 	//do this before setting off goroutines
+	p.bar = p.initProgressBar(ansi.NewAnsiStdout())
 	p.liveWriters = live
 
+	//now start live logging
 	go func() {
 		for {
 			p.logLive()
@@ -362,10 +367,10 @@ func (p *P0d) initLiveWriters(n int) {
 
 }
 
-func (p *P0d) initProgressBar() *progressbar.ProgressBar {
+func (p *P0d) initProgressBar(w io.Writer) *progressbar.ProgressBar {
 	start := p.Start.Format(time.Kitchen)
 	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionSetWriter(w),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionSetWidth(40),
 		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
