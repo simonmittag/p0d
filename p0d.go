@@ -6,9 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
-	"github.com/k0kubun/go-ansi"
 	. "github.com/logrusorgru/aurora"
-	"github.com/schollz/progressbar/v3"
 	"io"
 	"math"
 	"math/rand"
@@ -34,7 +32,7 @@ type P0d struct {
 	Output         string
 	outFile        *os.File
 	liveWriters    []io.Writer
-	bar            *progressbar.ProgressBar
+	bar            *ProgressBar
 	Interrupted    bool
 	interrupt      chan os.Signal
 	OsMaxOpenFiles int64
@@ -85,6 +83,10 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		OsMaxOpenFiles: ul,
 		interrupt:      sigs,
 		Interrupted:    false,
+		bar: &ProgressBar{
+			maxSecs: d,
+			size:    40,
+		},
 	}
 }
 
@@ -111,6 +113,10 @@ func NewP0dFromFile(f string, o string) *P0d {
 		OsMaxOpenFiles: ul,
 		interrupt:      sigs,
 		Interrupted:    false,
+		bar: &ProgressBar{
+			maxSecs: cfg.Exec.DurationSeconds,
+			size:    40,
+		},
 	}
 }
 
@@ -270,29 +276,30 @@ func (p *P0d) logBootstrap() {
 
 func (p *P0d) logLive() {
 	elpsd := time.Now().Sub(p.Start).Seconds()
-	p.bar.Set(int(elpsd))
 
 	lw := p.liveWriters
-	fmt.Fprintf(lw[0], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-	fmt.Fprintf(lw[1], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
-	fmt.Fprintf(lw[2], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-	fmt.Fprintf(lw[3], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-	fmt.Fprintf(lw[4], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+	fmt.Fprintf(lw[0], timefmt("sending HTTP requests: %s"), p.bar.render(elpsd))
+
+	fmt.Fprintf(lw[1], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+	fmt.Fprintf(lw[2], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+	fmt.Fprintf(lw[3], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
+	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
 
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(lw[5], timefmt("matching HTTP response codes: %v"), mrc)
+	fmt.Fprintf(lw[6], timefmt("matching HTTP response codes: %v"), mrc)
 
 	tte := fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumErrors)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
 	if p.Stats.SumErrors > 0 {
-		fmt.Fprintf(lw[6], timefmt("transport errors: %v"), Red(tte))
+		fmt.Fprintf(lw[7], timefmt("transport errors: %v"), Red(tte))
 	} else {
-		fmt.Fprintf(lw[6], timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(lw[7], timefmt("transport errors: %v"), Cyan(tte))
 	}
 
 	//need to flush manually here to keep stdout updated
@@ -354,7 +361,6 @@ func (p *P0d) initLiveWriters(n int) {
 	}
 
 	//do this before setting off goroutines
-	p.bar = p.initProgressBar(ansi.NewAnsiStdout())
 	p.liveWriters = live
 
 	//now start live logging
@@ -365,22 +371,6 @@ func (p *P0d) initLiveWriters(n int) {
 		}
 	}()
 
-}
-
-func (p *P0d) initProgressBar(w io.Writer) *progressbar.ProgressBar {
-	start := p.Start.Format(time.Kitchen)
-	return progressbar.NewOptions(p.Config.Exec.DurationSeconds,
-		progressbar.OptionSetWriter(w),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionSetDescription(fmt.Sprintf("[dark_gray]%s[reset] sending HTTP requests...", start)),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[yellow]=[reset]",
-			SaucerHead:    "[cyan]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
 }
 
 func (p *P0d) checkWrite(e error) {
