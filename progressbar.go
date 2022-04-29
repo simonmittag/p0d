@@ -27,9 +27,11 @@ func (p *ProgressBar) render(curSecs float64) string {
 	b.WriteString(Yellow(OPEN).String())
 	for i := 0; i < fs; i++ {
 		if i < fs-1 {
-			b.WriteString(Cyan(FILLED).String())
+			//b.WriteString(Cyan(FILLED).String())
+			b.WriteString(FILLED)
 		} else {
-			b.WriteString(Cyan(CURRENT).String())
+			//b.WriteString(Cyan(CURRENT).String())
+			b.WriteString(CURRENT)
 		}
 	}
 	for j := fs; j <= p.size; j++ {
