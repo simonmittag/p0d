@@ -1,7 +1,9 @@
 package p0d
 
 import (
+	"fmt"
 	. "github.com/logrusorgru/aurora"
+	"math"
 	"strings"
 )
 
@@ -18,18 +20,24 @@ const OPEN = "["
 const CLOSE = "]"
 
 func (p *ProgressBar) render(curSecs float64) string {
-	fs := 0
-	es := p.size
+	pctProgress := curSecs / float64(p.maxSecs)
+	fs := int(math.Ceil(pctProgress * float64(p.size)))
 
 	b := strings.Builder{}
 	b.WriteString(Yellow(OPEN).String())
 	for i := 0; i < fs; i++ {
-		b.WriteString(Cyan(FILLED).String())
-		b.WriteString(Cyan(CURRENT).String())
+		if i < fs-1 {
+			b.WriteString(Cyan(FILLED).String())
+		} else {
+			b.WriteString(Cyan(CURRENT).String())
+		}
 	}
-	for j := fs; j < es; j++ {
+	for j := fs; j <= p.size; j++ {
 		b.WriteString(EMPTY)
 	}
 	b.WriteString(Yellow(CLOSE).String())
-	return b.String()
+
+	b.WriteString(Cyan(fmt.Sprintf(" [%ds/%ds]", int(curSecs), p.maxSecs-int(curSecs))).String())
+	r := b.String()
+	return r
 }

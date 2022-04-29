@@ -1,7 +1,7 @@
 ---
 exec:
   mode: binary
-  durationSeconds: 30
+  durationSeconds: 60
   threads: 128
   connections: 128
   logsampling: 0.1

@@ -85,7 +85,7 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs: d,
-			size:    40,
+			size:    25,
 		},
 	}
 }
@@ -115,7 +115,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs: cfg.Exec.DurationSeconds,
-			size:    40,
+			size:    25,
 		},
 	}
 }
@@ -271,7 +271,7 @@ func (p *P0d) logBootstrap() {
 	if len(p.Output) > 0 {
 		log("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	fmt.Printf(timefmt("=> %s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
 func (p *P0d) logLive() {
