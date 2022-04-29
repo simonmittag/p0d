@@ -36,12 +36,9 @@ func (p *ProgressBar) render(curSecs float64) string {
 	}
 	b.WriteString(Cyan(f.String()).String())
 
-	e := strings.Builder{}
 	for j := fs; j <= p.size; j++ {
-		e.WriteString(EMPTY)
+		b.WriteString(EMPTY)
 	}
-	b.WriteString(Cyan(e.String()).String())
-
 	b.WriteString(Yellow(CLOSE).String())
 
 	b.WriteString(Cyan(fmt.Sprintf(" [%ds/%ds]", int(curSecs), p.maxSecs-int(curSecs))).String())
