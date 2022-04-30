@@ -27,9 +27,8 @@ func getUlimit() (string, int64) {
 	if err != nil {
 		return "not determined", 0
 	} else {
-		return fmt.Sprintf("current [%s] max [%s]",
-				Yellow(FGroup(int64(rLimit.Cur))),
-				Yellow(FGroup(int64(rLimit.Max)))),
+		return fmt.Sprintf("%s",
+				Yellow(FGroup(int64(rLimit.Cur)))),
 			int64(rLimit.Cur)
 	}
 }
