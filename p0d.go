@@ -245,16 +245,16 @@ func (p *P0d) finaliseOutputAndCloseWriters() {
 
 func (p *P0d) logBootstrap() {
 	if p.OsMaxOpenFiles == 0 {
-		msg := Red(fmt.Sprintf("unable to determine OS open file limits"))
+		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		log("%v", msg)
 	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
-		msg := fmt.Sprintf("found OS max open file limit %s too low, reduce connections from %s",
+		msg := fmt.Sprintf("detected low OS max open file limit %s, reduce connections from %s",
 			Red(FGroup(int64(p.OsMaxOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Connections))))
 		log(msg)
 	} else {
 		ul, _ := getUlimit()
-		log("found OS open file limits (ulimit): %s", ul)
+		log("detected OS open file ulimit: %s", ul)
 	}
 	log("%s starting", Yellow(p.ID))
 	log("duration: %s",
