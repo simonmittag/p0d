@@ -249,6 +249,8 @@ func (p *P0d) finaliseOutputAndCloseWriters() {
 }
 
 func (p *P0d) logBootstrap() {
+	logv(Red("        ___      _\n _ __  / _ \\  __| |\n| '_ \\| | | |/ _` |\n| |_) | |_| | (_| |\n| .__/ \\___/ \\__,_|\n|_|"))
+
 	if p.OsMaxOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		log("%v", msg)
