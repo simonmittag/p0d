@@ -11,8 +11,8 @@
 ## What is p0d?
 ![](p0d_128.png)
 
-p0d is a cli based HTTP performance testing tool, with live updates on the console. As of 04/22, p0d is beta grade software under 
-active development. 
+p0d is a cli based HTTP performance testing tool for your APIs, that provides live updates
+on stdout
 
 ## Up and running
 
