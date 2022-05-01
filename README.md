@@ -9,7 +9,7 @@
 [![Version](https://img.shields.io/badge/version-0.2.4-orange)](https://github.com/simonmittag/p0d)
 
 ## What is p0d?
-![](p0d2.png)
+![](p0d_128.png)
 
 p0d is a cli based HTTP performance testing tool, with live updates on the console. As of 04/22, p0d is beta grade software under 
 active development. 
