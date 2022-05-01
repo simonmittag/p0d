@@ -19,6 +19,7 @@ type Config struct {
 	Req  Req
 	Res  Res
 	Exec Exec
+	File string
 }
 
 type Req struct {
@@ -63,7 +64,6 @@ func loadConfigFromFile(fileName string) *Config {
 	defer f.Close()
 	cfgPanic(err)
 
-	log("config loaded from '%s'", Yellow(fileName))
 	yml, _ := ioutil.ReadAll(f)
 	jsn, _ := yaml.YAMLToJSON(yml)
 

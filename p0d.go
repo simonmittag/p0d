@@ -93,6 +93,7 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 
 func NewP0dFromFile(f string, o string) *P0d {
 	cfg := loadConfigFromFile(f)
+	cfg.File = f
 	cfg = cfg.validate()
 
 	start := time.Now()
@@ -249,7 +250,11 @@ func (p *P0d) finaliseOutputAndCloseWriters() {
 }
 
 func (p *P0d) logBootstrap() {
-	logv(Red("        ___      _\n _ __  / _ \\  __| |\n| '_ \\| | | |/ _` |\n| |_) | |_| | (_| |\n| .__/ \\___/ \\__,_|\n|_|"))
+	fmt.Printf("%v", Red("        ___      _\n _ __  / _ \\  __| |\n| '_ \\| | | |/ _` |\n| |_) | |_| | (_| |\n| .__/ \\___/ \\__,_|\n|_|\n"))
+
+	if p.Config.File != "" {
+		log("config loaded from '%s'", Yellow(p.Config.File))
+	}
 
 	if p.OsMaxOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
