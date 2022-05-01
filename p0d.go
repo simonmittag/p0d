@@ -85,7 +85,7 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs: d,
-			size:    25,
+			size:    20,
 		},
 	}
 }
@@ -115,7 +115,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs: cfg.Exec.DurationSeconds,
-			size:    25,
+			size:    20,
 		},
 	}
 }
@@ -155,15 +155,16 @@ Main:
 		case <-p.interrupt:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(p.liveWriters[0], backspace, 2)
+			p.Stop = time.Now()
 			p.finaliseOutputAndCloseWriters()
 			p.Interrupted = true
 			break Main
 		case <-end:
+			p.Stop = time.Now()
 			p.finaliseOutputAndCloseWriters()
 			break Main
 		case ra := <-ras:
-			now := time.Now()
-			p.Stats.update(ra, now, p.Config)
+			p.Stats.update(ra, time.Now(), p.Config)
 			p.logRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
@@ -229,7 +230,6 @@ func (p *P0d) finaliseOutputAndCloseWriters() {
 	//call final log manually to prevent differences between summary and what's on screen in live log.
 	p.logLive()
 	p.liveWriters[0].(*uilive.Writer).Stop()
-	p.Stop = time.Now()
 	p.logSummary()
 
 	if len(p.Output) > 0 {
@@ -278,10 +278,10 @@ func (p *P0d) logLive() {
 	elpsd := time.Now().Sub(p.Start).Seconds()
 
 	lw := p.liveWriters
-	fmt.Fprintf(lw[0], timefmt("sending HTTP requests: %s"), p.bar.render(elpsd))
+	fmt.Fprintf(lw[0], timefmt("runtime: %s"), p.bar.render(elpsd, p))
 
-	fmt.Fprintf(lw[1], timefmt("total HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-	fmt.Fprintf(lw[2], timefmt("HTTP req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
+	fmt.Fprintf(lw[1], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
+	fmt.Fprintf(lw[2], timefmt("req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
 	fmt.Fprintf(lw[3], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
 	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
 	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
@@ -315,10 +315,6 @@ func (p *P0d) logSummary() {
 			fmt.Sprintf("%.2f", math.Ceil(float64(pctv*100))/100)))
 		logv(err)
 	}
-
-	//truncate runtime as seconds
-	elapsed := durafmt.Parse(p.Stop.Sub(p.Start).Truncate(time.Second)).LimitFirstN(2).String()
-	log("total runtime: %s", Cyan(elapsed))
 }
 
 func (p *P0d) logRequestAttempt(ra ReqAtmpt, prefix string, indent string, comma []byte) {
