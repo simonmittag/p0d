@@ -42,6 +42,7 @@ type ReqAtmpt struct {
 	Start    time.Time
 	Stop     time.Time
 	ElpsdNs  time.Duration
+	ReqBytes int64
 	ResCode  int
 	ResBytes int64
 	ResErr   string
@@ -143,7 +144,7 @@ func (p *P0d) Race() {
 		go p.doReqAtmpt(ras)
 	}
 
-	p.initLiveWriters(7)
+	p.initLiveWriters(9)
 
 	const prefix string = ""
 	const indent string = "  "
@@ -194,6 +195,10 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 				}
 			}
 		}
+
+		bq, _ := httputil.DumpRequest(req, true)
+		ra.ReqBytes = int64(len(bq))
+		_ = bq
 
 		res, e := p.client.Do(req)
 		if res != nil {
@@ -256,7 +261,7 @@ func (p *P0d) logBootstrap() {
 		ul, _ := getUlimit()
 		log("detected OS open file ulimit: %s", ul)
 	}
-	log("%s starting", Yellow(p.ID))
+	log("%s starting engines", Yellow(p.ID))
 	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
@@ -283,23 +288,25 @@ func (p *P0d) logLive() {
 	fmt.Fprintf(lw[1], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
 	fmt.Fprintf(lw[2], timefmt("req throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsSec))), Cyan("/s"))
 	fmt.Fprintf(lw[3], timefmt("req latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
-	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytes)))
-	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesSec))), Cyan("/s"))
+	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesRead)))
+	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesReadSec))), Cyan("/s"))
+	fmt.Fprintf(lw[6], timefmt("bytes written: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesWritten)))
+	fmt.Fprintf(lw[7], timefmt("write throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesWrittenSec))), Cyan("/s"))
 
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(lw[6], timefmt("matching HTTP response codes: %v"), mrc)
+	fmt.Fprintf(lw[8], timefmt("matching HTTP response codes: %v"), mrc)
 
 	tte := fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.Stats.SumErrors)),
 		FGroup(int64(p.Stats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
 	if p.Stats.SumErrors > 0 {
-		fmt.Fprintf(lw[7], timefmt("transport errors: %v"), Red(tte))
+		fmt.Fprintf(lw[9], timefmt("transport errors: %v"), Red(tte))
 	} else {
-		fmt.Fprintf(lw[7], timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(lw[9], timefmt("transport errors: %v"), Cyan(tte))
 	}
 
 	//need to flush manually here to keep stdout updated

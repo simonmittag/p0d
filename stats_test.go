@@ -33,10 +33,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.ReqAtmptsSec != 3 {
 		t.Error("request attempts per second incorrect")
 	}
-	if s.SumBytes != 1000 {
+	if s.SumBytesRead != 1000 {
 		t.Error("sumbytes incorrect")
 	}
-	if s.MeanBytesSec != 250 {
+	if s.MeanBytesReadSec != 250 {
 		t.Error("mean bytes per sec incorrect")
 	}
 	if s.Elpsd != 4*time.Second {
@@ -76,10 +76,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.ReqAtmpts != 13 {
 		t.Error("request attempts incorrect")
 	}
-	if s.SumBytes != 2000 {
+	if s.SumBytesRead != 2000 {
 		t.Error("sumbytes incorrect")
 	}
-	if s.MeanBytesSec != 333 {
+	if s.MeanBytesReadSec != 333 {
 		t.Error("mean bytes per sec incorrect")
 	}
 	if s.Elpsd != 6*time.Second {

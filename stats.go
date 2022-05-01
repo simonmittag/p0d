@@ -10,8 +10,10 @@ type Stats struct {
 	Elpsd                    time.Duration
 	ReqAtmpts                int
 	ReqAtmptsSec             int
-	SumBytes                 int64
-	MeanBytesSec             int
+	SumBytesRead             int64
+	MeanBytesReadSec         int
+	SumBytesWritten          int64
+	MeanBytesWrittenSec      int
 	SumElpsdAtmptLatency     time.Duration
 	MeanElpsdAtmptLatency    time.Duration
 	SumMatchingResponseCodes int
@@ -26,8 +28,11 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.Elpsd = now.Sub(s.Start)
 	s.ReqAtmptsSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
 
-	s.SumBytes += atmpt.ResBytes
-	s.MeanBytesSec = int(math.Floor(float64(s.SumBytes) / s.Elpsd.Seconds()))
+	s.SumBytesRead += atmpt.ResBytes
+	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
+
+	s.SumBytesWritten += atmpt.ReqBytes
+	s.MeanBytesWrittenSec = int(math.Floor(float64(s.SumBytesWritten) / s.Elpsd.Seconds()))
 	s.SumElpsdAtmptLatency += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatency = s.SumElpsdAtmptLatency / time.Duration(s.ReqAtmpts)
 
