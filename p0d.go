@@ -174,7 +174,16 @@ Main:
 	log(Cyan("done").String())
 }
 
+const ua = "User-Agent"
+const N = ""
+const ct = "Content-Type"
+const js = "application/json"
+
+var vs = fmt.Sprintf("p0d %s", Version)
+var bodyTypes = []string{"POST", "PUT"}
+
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
+
 	for {
 		//introduce artifical request latency
 		if p.Config.Exec.SpacingMillis > 0 {
@@ -189,6 +198,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			p.Config.Req.Url,
 			strings.NewReader(p.Config.Req.Body))
 
+		//set headers from config
 		if len(p.Config.Req.Headers) > 0 {
 			for _, h := range p.Config.Req.Headers {
 				for k, v := range h {
@@ -197,10 +207,20 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			}
 		}
 
+		//set user agent and default content type to application/json
+		req.Header.Add(ua, vs)
+		if contains(bodyTypes, req.Method) {
+			if req.Header.Get(ct) == N {
+				req.Header.Set(ct, js)
+			}
+		}
+
+		//measure for size before sending
 		bq, _ := httputil.DumpRequest(req, true)
 		ra.ReqBytes = int64(len(bq))
 		_ = bq
 
+		//do the work and dump the response for size
 		res, e := p.client.Do(req)
 		if res != nil {
 			ra.ResCode = res.StatusCode
@@ -213,21 +233,24 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		ra.Stop = time.Now()
 		ra.ElpsdNs = ra.Stop.Sub(ra.Start)
 
+		//report on errors
 		if e != nil {
-			em := ""
+			em := N
 			for ek, ev := range connectionErrors {
 				if strings.Contains(e.Error(), ek) {
 					em = ev
 				}
 			}
-			if em == "" {
+			if em == N {
 				em = e.Error()
 			}
 			ra.ResErr = em
 		}
 
+		//null this aggressively
 		req = nil
 
+		//and report back
 		ras <- ra
 	}
 }

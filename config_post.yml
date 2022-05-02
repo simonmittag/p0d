@@ -9,6 +9,7 @@ req:
   url: http://localhost:60083/mse6/post
   headers:
     - Accept-Encoding: "identity"
+    - Content-Type: "application/json"
   body: '[
      {
        "_id": "6258803a11df084c64305568",

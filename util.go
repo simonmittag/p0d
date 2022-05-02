@@ -107,3 +107,13 @@ func PrintLogo() (int, error) {
 func PrintVersion() {
 	fmt.Printf(Cyan("p0d %s\n").String(), Version)
 }
+
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}

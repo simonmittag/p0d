@@ -20,6 +20,8 @@ const FILLED = "="
 const CURRENT = ">"
 const OPEN = "["
 const CLOSE = "]"
+const rt = "runtime: "
+const trt = "total runtime: %v"
 
 func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 	if pod.Stop.IsZero() {
@@ -27,7 +29,7 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 		fs := int(math.Ceil(pctProgress * float64(p.size)))
 
 		b := strings.Builder{}
-		b.WriteString("runtime: ")
+		b.WriteString(rt)
 		b.WriteString(Yellow(OPEN).String())
 
 		f := strings.Builder{}
@@ -51,6 +53,7 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 	} else {
 		//truncate runtime as seconds
 		elapsed := durafmt.Parse(pod.Stop.Sub(pod.Start).Truncate(time.Second)).LimitFirstN(2).String()
-		return fmt.Sprintf("total runtime: %v", Cyan(elapsed))
+
+		return fmt.Sprintf(trt, Cyan(elapsed))
 	}
 }
