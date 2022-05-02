@@ -215,7 +215,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			}
 		}
 
-		//measure for size before sending
+		//measure for size before sending. We don't set content length, go does that internally
 		bq, _ := httputil.DumpRequest(req, true)
 		ra.ReqBytes = int64(len(bq))
 		_ = bq
