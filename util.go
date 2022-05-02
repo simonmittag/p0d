@@ -93,8 +93,8 @@ func PrintLogo() (int, error) {
 			Cyan("\n====-    -====").String()+Red("       -==-  -=  --  .===-.").String()+Cyan("     -===-    -====").String()+
 			Cyan("\n====-    ====-").String()+Red("  ...    .--  -  -  --.").String()+Cyan("          ====    -====").String()+
 			Cyan("\n=====    ====").String()+Red("   .-===-.. ....---... ..-=====.").String()+Cyan("  .===    -====").String()+
-			Cyan("\n.============").String()+Red("       ...... =").String()+Yellow("/+#+\\").String()+Red(".......").String()+Cyan("       ===    -====").String()+
-			Cyan("\n  -==========").String()+Red("     ........ -").String()+Yellow("\\+#+/").String()+Red(".     .-----.").String()+Cyan("  ===    -====").String()+
+			Cyan("\n.============").String()+Red("       ...... =").String()+Yellow("//|\\\\").String()+Red("........").String()+Cyan("       ===    -====").String()+
+			Cyan("\n  -==========").String()+Red("     ........ -").String()+Yellow("\\\\|//").String()+Red(".     .-----.").String()+Cyan("  ===    -====").String()+
 			Cyan("\n         ====.").String()+Red("  -====--.  .. -.-. --   ..-==.").String()+Cyan("  -===    -====").String()+
 			Cyan("\n         =====").String()+Red("         .--. .=  =  .==.").String()+Cyan("        ====    -====").String()+
 			Cyan("\n         -====-").String()+Red("     .-==-  .=-  ==   -==-").String()+Cyan("     ====-    -====").String()+

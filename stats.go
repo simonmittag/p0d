@@ -14,8 +14,8 @@ type Stats struct {
 	MeanBytesReadSec         int
 	SumBytesWritten          int64
 	MeanBytesWrittenSec      int
-	SumElpsdAtmptLatency     time.Duration
-	MeanElpsdAtmptLatency    time.Duration
+	SumElpsdAtmptLatencyNs   time.Duration
+	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
 	PctMatchingResponseCodes float32
 	SumErrors                int
@@ -33,8 +33,8 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 
 	s.SumBytesWritten += atmpt.ReqBytes
 	s.MeanBytesWrittenSec = int(math.Floor(float64(s.SumBytesWritten) / s.Elpsd.Seconds()))
-	s.SumElpsdAtmptLatency += atmpt.ElpsdNs
-	s.MeanElpsdAtmptLatency = s.SumElpsdAtmptLatency / time.Duration(s.ReqAtmpts)
+	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
+	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
 
 	if atmpt.ResCode == cfg.Res.Code {
 		s.SumMatchingResponseCodes++

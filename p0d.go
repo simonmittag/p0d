@@ -158,8 +158,8 @@ Main:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(p.liveWriters[0], backspace, 2)
 			p.Stop = time.Now()
-			p.finaliseOutputAndCloseWriters()
 			p.Interrupted = true
+			p.finaliseOutputAndCloseWriters()
 			break Main
 		case <-end:
 			p.Stop = time.Now()
@@ -294,7 +294,7 @@ func (p *P0d) logLive() {
 
 	fmt.Fprintf(lw[1], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
 	fmt.Fprintf(lw[2], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsPSec))), Cyan("/s"))
-	fmt.Fprintf(lw[3], timefmt("roundtrip latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatency.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(lw[3], timefmt("roundtrip latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
 	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesRead)))
 	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesReadSec))), Cyan("/s"))
 	fmt.Fprintf(lw[6], timefmt("bytes written: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesWritten)))
