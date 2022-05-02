@@ -24,7 +24,7 @@ func main() {
 
 	C := flag.String("C", "", "load configuration from yml file")
 	O := flag.String("O", "", "save detailed JSON output to file")
-	t := flag.Int("t", 1, "amount of parallel execution threads")
+	t := flag.Int("t", 1, "amount of parallel threads")
 	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	H := flag.String("H", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+

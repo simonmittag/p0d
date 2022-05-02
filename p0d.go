@@ -272,7 +272,7 @@ func (p *P0d) logBootstrap() {
 	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
-	log("parallel execution thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
+	log("parallel thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
 	log("max TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Connections))))
 	log("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))

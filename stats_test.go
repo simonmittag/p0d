@@ -42,10 +42,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.Elpsd != 4*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmptLatency.Milliseconds() != 2000 {
+	if s.SumElpsdAtmptLatencyNs.Milliseconds() != 2000 {
 		t.Error("sum of elapsed time for attempts incorrect")
 	}
-	if s.MeanElpsdAtmptLatency.Milliseconds() != 166 {
+	if s.MeanElpsdAtmptLatencyNs.Milliseconds() != 166 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
@@ -85,10 +85,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.Elpsd != 6*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmptLatency != 3*time.Second {
+	if s.SumElpsdAtmptLatencyNs != 3*time.Second {
 		t.Error("sum of elapsed time for attempts incorrect")
 	}
-	if s.MeanElpsdAtmptLatency.Milliseconds() != 230 {
+	if s.MeanElpsdAtmptLatencyNs.Milliseconds() != 230 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
