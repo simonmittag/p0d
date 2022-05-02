@@ -9,7 +9,7 @@ type Stats struct {
 	Start                    time.Time
 	Elpsd                    time.Duration
 	ReqAtmpts                int
-	ReqAtmptsSec             int
+	ReqAtmptsPSec            int
 	SumBytesRead             int64
 	MeanBytesReadSec         int
 	SumBytesWritten          int64
@@ -26,7 +26,7 @@ type Stats struct {
 func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.Elpsd = now.Sub(s.Start)
-	s.ReqAtmptsSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
+	s.ReqAtmptsPSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
 
 	s.SumBytesRead += atmpt.ResBytes
 	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
