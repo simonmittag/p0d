@@ -180,7 +180,7 @@ const ct = "Content-Type"
 const js = "application/json"
 
 var vs = fmt.Sprintf("p0d %s", Version)
-var bodyTypes = []string{"POST", "PUT"}
+var bodyTypes = []string{"POST", "PUT", "PATCH"}
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 
