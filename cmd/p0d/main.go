@@ -71,6 +71,7 @@ func printVersion() {
 }
 
 func printUsage() {
+	p0d.PrintLogo()
 	fmt.Printf("p0d %s\n usage: p0d [-f flag] [URL]\n\n flags:\n", p0d.Version)
 	flag.PrintDefaults()
 }
