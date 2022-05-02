@@ -18,9 +18,7 @@ on stdout
 
 ### Golang
 ```bash
-go get github.com/simonmittag/p0d && 
-go install github.com/simonmittag/p0d/cmd/p0d && 
-p0d -h
+go install github.com/simonmittag/p0d/cmd/p0d && p0d -h
 ```
 
 ## Usage Samples
