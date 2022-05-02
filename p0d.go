@@ -171,7 +171,7 @@ Main:
 		}
 	}
 
-	log("done")
+	log(Cyan("done").String())
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
@@ -268,7 +268,7 @@ func (p *P0d) logBootstrap() {
 		ul, _ := getUlimit()
 		log("detected OS open file ulimit: %s", ul)
 	}
-	log("%s starting engines", Yellow(p.ID))
+	log("%s starting engines", Cyan(p.ID))
 	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
