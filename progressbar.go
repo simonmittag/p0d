@@ -27,7 +27,7 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 		fs := int(math.Ceil(pctProgress * float64(p.size)))
 
 		b := strings.Builder{}
-		b.WriteString("sending requests: ")
+		b.WriteString("runtime: ")
 		b.WriteString(Yellow(OPEN).String())
 
 		f := strings.Builder{}
