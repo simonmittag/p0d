@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	. "github.com/logrusorgru/aurora"
 	"github.com/simonmittag/p0d"
 	"os"
 )
@@ -67,11 +68,12 @@ func main() {
 }
 
 func printVersion() {
-	fmt.Printf("p0d %s\n", p0d.Version)
+	fmt.Printf(Cyan("p0d %s\n").String(), p0d.Version)
 }
 
 func printUsage() {
 	p0d.PrintLogo()
-	fmt.Printf("p0d %s\n usage: p0d [-f flag] [URL]\n\n flags:\n", p0d.Version)
+	printVersion()
+	fmt.Print("usage: p0d [-f flag] [URL]\n\n flags:\n")
 	flag.PrintDefaults()
 }
