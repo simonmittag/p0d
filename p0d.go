@@ -291,7 +291,7 @@ func (p *P0d) logLive() {
 	elpsd := time.Now().Sub(p.Start).Seconds()
 
 	lw := p.liveWriters
-	fmt.Fprintf(lw[0], timefmt("runtime: %s"), p.bar.render(elpsd, p))
+	fmt.Fprintf(lw[0], timefmt("%s"), p.bar.render(elpsd, p))
 
 	fmt.Fprintf(lw[1], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
 	fmt.Fprintf(lw[2], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsPSec))), Cyan("/s"))

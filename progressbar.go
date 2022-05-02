@@ -27,6 +27,7 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 		fs := int(math.Ceil(pctProgress * float64(p.size)))
 
 		b := strings.Builder{}
+		b.WriteString("sending requests: ")
 		b.WriteString(Yellow(OPEN).String())
 
 		f := strings.Builder{}
@@ -43,11 +44,13 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 			b.WriteString(EMPTY)
 		}
 		b.WriteString(Yellow(CLOSE).String())
-		b.WriteString(Cyan(fmt.Sprintf(" [%ds/%ds]", int(curSecs), p.maxSecs-int(curSecs))).String())
+		//remaining whole seconds
+		t := (time.Second * time.Duration(p.maxSecs-int(curSecs))).Truncate(time.Second)
+		b.WriteString(fmt.Sprintf(" %s", Cyan(durafmt.Parse(t).LimitFirstN(2).String()).String()))
 		return b.String()
 	} else {
 		//truncate runtime as seconds
 		elapsed := durafmt.Parse(pod.Stop.Sub(pod.Start).Truncate(time.Second)).LimitFirstN(2).String()
-		return fmt.Sprintf("%v", Cyan(elapsed))
+		return fmt.Sprintf("total runtime: %v", Cyan(elapsed))
 	}
 }
