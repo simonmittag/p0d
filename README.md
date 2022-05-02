@@ -35,6 +35,13 @@ Run in http/2 mode against local server and save output to `log.json`
 λ p0d -H 2 -O log.json http://localhost:8080/path
 ```
 
+Run with config file
+```
+λ p0d -C config_get.yml
+```
+
+![](bash.gif)
+
 ### Cli args
 ```
 λ p0d v0.2.4
@@ -57,23 +64,19 @@ Run in http/2 mode against local server and save output to `log.json`
   -v    print version
 ```
 
-### With config file
-```
-λ p0d -C config_get.yml
-```
+### Config file reference
 
-####config_get.yml
 ```
 ---
 exec:
   mode: binary
-  durationSeconds: 30
-  threads: 128
-  connections: 128
-  logsampling: 0.1
+  durationSeconds: 10
+  threads: 1
+  connections: 1
+  logsampling: 1
 req:
-  method: GET
-  url: http://localhost:60083/mse6/get
+  method: POST
+  url: http://localhost:8080/path
   headers:
     - Accept-Encoding: "identity"
   body: '
@@ -96,7 +99,7 @@ give up connecting to upstream resource after `n` seconds. Defaults to `3`
 use `n` threads to make parallel calls to the server. Defaults to `1`
 
 #### exec.connections
-use a pool of maximum `n` connections. Defaults to `16`. Make sure your OS supports sufficient open file descriptors
+use a pool of maximum `n` connections. Defaults to `1`. Make sure your OS supports sufficient open file descriptors
 before settings this to a very high value. Set this to a similar size as `exec.threads` to avoid large amounts of
 threads competing for few connection resources.
 
