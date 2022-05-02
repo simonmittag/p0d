@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	. "github.com/logrusorgru/aurora"
 	"github.com/simonmittag/p0d"
 	"os"
 )
@@ -55,9 +54,12 @@ func main() {
 		pod = p0d.NewP0dFromFile(*C, *O)
 		pod.Race()
 	case Usage:
-		printUsage()
+		p0d.PrintLogo()
+		p0d.PrintVersion()
+		fmt.Print("\nusage: p0d [-f flag] [URL]\n\n flags:\n")
+		flag.PrintDefaults()
 	case Version:
-		printVersion()
+		p0d.PrintVersion()
 	}
 
 	if mode == Cli || mode == File {
@@ -65,15 +67,4 @@ func main() {
 			os.Exit(-1)
 		}
 	}
-}
-
-func printVersion() {
-	fmt.Printf(Cyan("p0d %s\n").String(), p0d.Version)
-}
-
-func printUsage() {
-	p0d.PrintLogo()
-	printVersion()
-	fmt.Print("usage: p0d [-f flag] [URL]\n\n flags:\n")
-	flag.PrintDefaults()
 }

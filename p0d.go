@@ -251,7 +251,8 @@ func (p *P0d) finaliseOutputAndCloseWriters() {
 
 func (p *P0d) logBootstrap() {
 	PrintLogo()
-
+	PrintVersion()
+	fmt.Printf("\n")
 	if p.Config.File != "" {
 		log("config loaded from '%s'", Yellow(p.Config.File))
 	}

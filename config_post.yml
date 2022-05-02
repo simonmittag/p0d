@@ -3,7 +3,7 @@ exec:
   durationSeconds: 7200
   threads: 128
   connections: 128
-  logsampling: 0.2
+  logsampling: 0.01
 req:
   method: POST
   url: http://localhost:60083/mse6/post

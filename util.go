@@ -101,5 +101,9 @@ func PrintLogo() (int, error) {
 			Cyan("\n            =====-").String()+Red("   .--.   .==.  ===   .--").String()+Cyan("   .=====.   .=====").String()+
 			Cyan("\n            -======-.").String()+Red("       ==-   -==").String()+Cyan("        -===============.").String()+
 			Cyan("\n             --------.").String()+Red("      ..     -.").String()+Cyan("       ---============-  ").String()+
-			"\n\n")
+			"\n")
+}
+
+func PrintVersion() {
+	fmt.Printf(Cyan("p0d %s\n").String(), Version)
 }
