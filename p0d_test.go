@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewP0dFromFile(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
@@ -76,17 +76,17 @@ func TestNewP0dWithValues(t *testing.T) {
 }
 
 func TestLogBootstrap(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 	p.logBootstrap()
 }
 
 func TestLogSummary(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 	p.logSummary()
 }
 
 func TestDoReqAtmpt(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")
@@ -116,7 +116,7 @@ func TestDoReqAtmpt(t *testing.T) {
 }
 
 func TestRace(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")
@@ -131,7 +131,7 @@ func TestRace(t *testing.T) {
 }
 
 func TestRaceWithOutput(t *testing.T) {
-	p := NewP0dFromFile("./config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")

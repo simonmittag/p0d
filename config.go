@@ -23,10 +23,11 @@ type Config struct {
 }
 
 type Req struct {
-	Method  string
-	Url     string
-	Headers []map[string]string
-	Body    string
+	Method   string
+	Url      string
+	Headers  []map[string]string
+	Body     string
+	FormData string
 }
 
 type Res struct {
@@ -107,6 +108,9 @@ func (cfg *Config) validate() *Config {
 	}
 	if cfg.Req.Method == "" {
 		cfg.Req.Method = "GET"
+	}
+	if cfg.Res.Code == 0 {
+		cfg.Res.Code = 200
 	}
 	if cfg.Res.Code == 0 {
 		cfg.Res.Code = 200

@@ -1,54 +1,57 @@
-package p0d
+package examples
 
-import "testing"
+import (
+	"github.com/simonmittag/p0d"
+	"testing"
+)
 
 func TestEmptyConfigValidate(t *testing.T) {
-	cfg := Config{
-		Req: Req{
+	cfg := p0d.Config{
+		Req: p0d.Req{
 			Url: "http://localhost:8080/blah",
 		},
 	}
 	got := cfg.validate()
-	if got.Res.Code!=200 {
+	if got.Res.Code != 200 {
 		t.Error("invalid default res code")
 	}
-	if got.Req.Method!="GET" {
+	if got.Req.Method != "GET" {
 		t.Error("invalid default req method")
 	}
-	if got.Exec.Mode!="decimal" {
+	if got.Exec.Mode != "decimal" {
 		t.Error("invalid default exec mode")
 	}
-	if got.Exec.Mode!="decimal" {
+	if got.Exec.Mode != "decimal" {
 		t.Error("invalid default exec mode")
 	}
-	if got.Exec.HttpVersion!=1.1 {
+	if got.Exec.HttpVersion != 1.1 {
 		t.Error("invalid default http version")
 	}
-	if got.Exec.DialTimeoutSeconds!=3 {
+	if got.Exec.DialTimeoutSeconds != 3 {
 		t.Error("invalid default dial timeout")
 	}
-	if got.Exec.DurationSeconds!=10 {
+	if got.Exec.DurationSeconds != 10 {
 		t.Error("invalid default duration seconds")
 	}
-	if got.Exec.LogSampling!=1 {
+	if got.Exec.LogSampling != 1 {
 		t.Error("invalid default logsampling")
 	}
-	if got.Exec.SpacingMillis!=0 {
+	if got.Exec.SpacingMillis != 0 {
 		t.Error("invalid default spacing millis")
 	}
-	if got.Exec.Threads!=1 {
+	if got.Exec.Threads != 1 {
 		t.Error("invalid default threads")
 	}
-	if got.Exec.Connections!=1 {
+	if got.Exec.Connections != 1 {
 		t.Error("invalid default connections")
 	}
-	if got.Exec.Connections!=1 {
+	if got.Exec.Connections != 1 {
 		t.Error("invalid default connections")
 	}
 }
 
 func TestLoadConfigFromFile(t *testing.T) {
-	cfg := loadConfigFromFile("./config_get.yml")
+	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
 
 	//we already tested the other scenarios elsewhere.
 	if cfg.Res.Code != 200 {
@@ -63,7 +66,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 }
 
 func TestScaffoldHTTPClient(t *testing.T) {
-	cfg := loadConfigFromFile("./config_get.yml")
+	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
 
 	h := cfg.scaffoldHttpClient()
 	if h.Transport == nil {
@@ -72,7 +75,7 @@ func TestScaffoldHTTPClient(t *testing.T) {
 }
 
 func TestByteCount(t *testing.T) {
-	cfg := loadConfigFromFile("./config_get.yml")
+	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
 
 	cfg.Exec.Mode = "decimal"
 
