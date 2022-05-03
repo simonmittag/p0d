@@ -1,13 +1,12 @@
-package examples
+package p0d
 
 import (
-	"github.com/simonmittag/p0d"
 	"testing"
 )
 
 func TestEmptyConfigValidate(t *testing.T) {
-	cfg := p0d.Config{
-		Req: p0d.Req{
+	cfg := Config{
+		Req: Req{
 			Url: "http://localhost:8080/blah",
 		},
 	}
@@ -51,7 +50,7 @@ func TestEmptyConfigValidate(t *testing.T) {
 }
 
 func TestLoadConfigFromFile(t *testing.T) {
-	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
+	cfg := loadConfigFromFile("./examples/config_get.yml")
 
 	//we already tested the other scenarios elsewhere.
 	if cfg.Res.Code != 200 {
@@ -65,8 +64,64 @@ func TestLoadConfigFromFile(t *testing.T) {
 	}
 }
 
+func TestFormConfigValidate(t *testing.T) {
+	testForApplicationXWWWFormUrlEncoded := func(cfg *Config) {
+		for _, h := range cfg.Req.Headers {
+			for k, v := range h {
+				if k == "Content-Type" {
+					if v != "application/x-www-form-urlencoded" {
+						t.Errorf("Content-Type should be application/x-www-form-urlencoded, was %v", v)
+					}
+				}
+			}
+		}
+	}
+
+	cfg := loadConfigFromFile("./examples/config_formpost.yml")
+	cfg.validate()
+
+	//test form header present
+	testForApplicationXWWWFormUrlEncoded(cfg)
+
+	//wipe the form header
+	cfg.Req.Headers = make([]map[string]string, 0)
+
+	//revalidate and test the header is back it should be inserted when form data is found.
+	cfg.validate()
+	testForApplicationXWWWFormUrlEncoded(cfg)
+
+}
+
+func TestPostConfigValidate(t *testing.T) {
+	testForApplicationJson := func(cfg *Config) {
+		for _, h := range cfg.Req.Headers {
+			for k, v := range h {
+				if k == "Content-Type" {
+					if v != "application/json" {
+						t.Errorf("Content-Type should be application/json, was %v", v)
+					}
+				}
+			}
+		}
+	}
+
+	cfg := loadConfigFromFile("./examples/config_post.yml")
+	cfg.validate()
+
+	//test form header present
+	testForApplicationJson(cfg)
+
+	//wipe the form header
+	cfg.Req.Headers = make([]map[string]string, 0)
+
+	//revalidate and test the header is back it should be inserted when not specified.
+	cfg.validate()
+	testForApplicationJson(cfg)
+
+}
+
 func TestScaffoldHTTPClient(t *testing.T) {
-	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
+	cfg := loadConfigFromFile("./examples/config_get.yml")
 
 	h := cfg.scaffoldHttpClient()
 	if h.Transport == nil {
@@ -75,7 +130,7 @@ func TestScaffoldHTTPClient(t *testing.T) {
 }
 
 func TestByteCount(t *testing.T) {
-	cfg := p0d.loadConfigFromFile("./examples/config_get.yml")
+	cfg := loadConfigFromFile("./examples/config_get.yml")
 
 	cfg.Exec.Mode = "decimal"
 

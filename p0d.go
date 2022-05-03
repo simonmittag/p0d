@@ -208,12 +208,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		}
 
 		//set user agent and default content type to application/json
-		req.Header.Add(ua, vs)
-		if contains(bodyTypes, req.Method) {
-			if req.Header.Get(ct) == N {
-				req.Header.Set(ct, js)
-			}
-		}
+		req.Header.Set(ua, vs)
 
 		//measure for size before sending. We don't set content length, go does that internally
 		bq, _ := httputil.DumpRequest(req, true)

@@ -27,7 +27,7 @@ type Req struct {
 	Url      string
 	Headers  []map[string]string
 	Body     string
-	FormData string
+	FormData []map[string]string
 }
 
 type Res struct {
@@ -75,6 +75,12 @@ func loadConfigFromFile(fileName string) *Config {
 }
 
 func (cfg *Config) validate() *Config {
+	//we always want this.
+	cfg.Req.Method = strings.ToUpper(cfg.Req.Method)
+	if cfg.Req.Method == "" {
+		cfg.Req.Method = "GET"
+	}
+
 	if cfg.Exec.Threads == 0 {
 		cfg.Exec.Threads = 1
 	}
@@ -106,17 +112,57 @@ func (cfg *Config) validate() *Config {
 		//default to all
 		cfg.Exec.SpacingMillis = 0
 	}
-	if cfg.Req.Method == "" {
-		cfg.Req.Method = "GET"
+
+	if len(cfg.Req.Body) > 0 {
+		if len(cfg.Req.FormData) > 0 {
+			cfg.panic("when specifying request body, cannot have form data")
+		}
 	}
-	if cfg.Res.Code == 0 {
-		cfg.Res.Code = 200
+
+	if len(cfg.Req.FormData) > 0 {
+		if cfg.Req.Method != "POST" {
+			cfg.panic("when specifying form data, method must be POST")
+		}
+		if len(cfg.Req.Body) > 0 {
+			cfg.panic("when specifying form data, cannot have request body")
+		}
+		if len(cfg.Req.Headers) > 0 {
+			formct := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+
+			matched := false
+			for i, h := range cfg.Req.Headers {
+				for k, _ := range h {
+					if k == "Content-Type" {
+						cfg.Req.Headers[i] = formct
+						matched = true
+					}
+				}
+			}
+			if !matched {
+				cfg.Req.Headers = append(cfg.Req.Headers, formct)
+			}
+		}
+	} else if contains(bodyTypes, cfg.Req.Method) {
+		jsonct := map[string]string{"Content-Type": "application/json"}
+		matched := false
+		for _, h := range cfg.Req.Headers {
+			for k, _ := range h {
+				if k == "Content-Type" {
+					matched = true
+				}
+			}
+		}
+		//we only set default content type if it wasn't specified otherwise.
+		if !matched {
+			cfg.Req.Headers = append(cfg.Req.Headers, jsonct)
+		}
 	}
-	if cfg.Res.Code == 0 {
-		cfg.Res.Code = 200
-	}
+
 	if cfg.Req.Url == "" {
 		cfg.panic("request url not specified")
+	}
+	if cfg.Res.Code == 0 {
+		cfg.Res.Code = 200
 	}
 	return cfg
 }

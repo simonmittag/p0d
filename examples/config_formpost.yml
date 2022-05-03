@@ -1,0 +1,13 @@
+---
+exec:
+  durationSeconds: 10
+req:
+  method: POST
+  url: http://localhost:60083/mse6/formpost
+  headers:
+    - Content-Type: "application/x-www-form-urlencoded"
+  formData:
+    - key1: value1
+    - key2: value2
+res:
+  code: 200
