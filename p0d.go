@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -194,9 +195,22 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			Start: time.Now(),
 		}
 
+		//needs to decided between url encoded, multipart form data and everything else
+		var body *strings.Reader
+		if len(p.Config.Req.FormData) == 0 {
+			body = strings.NewReader(p.Config.Req.Body)
+		} else {
+			data := url.Values{}
+			for _, fd := range p.Config.Req.FormData {
+				for k, v := range fd {
+					data.Add(k, v)
+				}
+			}
+			body = strings.NewReader(data.Encode())
+		}
 		req, _ := http.NewRequest(p.Config.Req.Method,
 			p.Config.Req.Url,
-			strings.NewReader(p.Config.Req.Body))
+			body)
 
 		//set headers from config
 		if len(p.Config.Req.Headers) > 0 {

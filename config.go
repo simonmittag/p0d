@@ -127,6 +127,7 @@ func (cfg *Config) validate() *Config {
 			cfg.panic("when specifying form data, cannot have request body")
 		}
 		if len(cfg.Req.Headers) > 0 {
+			//defaults to urlencoded
 			formct := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
 
 			matched := false
