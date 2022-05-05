@@ -1,6 +1,6 @@
 ---
 exec:
-  durationSeconds: 10
+  durationSeconds: 30
 req:
   method: POST
   url: http://localhost:60083/mse6/formpost
