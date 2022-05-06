@@ -5,7 +5,7 @@ exec:
   connections: 128
 req:
   method: POST
-  url: http://localhost:60183/mse6/post
+  url: http://localhost:60083/mse6/post
   headers:
     - Content-Type: "multipart/form-data"
   formData:
