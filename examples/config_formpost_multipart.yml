@@ -1,11 +1,11 @@
 ---
 exec:
-  durationSeconds: 30
+  durationSeconds: 1
   threads: 128
   connections: 128
 req:
   method: POST
-  url: http://localhost:60083/mse6/post
+  url: http://localhost:60083/mse6/formpost
   headers:
     - Content-Type: "multipart/form-data"
   formData:
@@ -14,4 +14,4 @@ req:
     - "@file1": ./p0d_80.png
     - "@file2": ./README.md
 res:
-  code: 201
+  code: 200

@@ -12,4 +12,4 @@ req:
     - key1: value1
     - key2: value2
 res:
-  code: 200
+  code: 201
