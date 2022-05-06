@@ -12,8 +12,8 @@
 ![](p0d_80.png)
 
 p0d is a cli based HTTP performance testing tool for your API server. It provides live updates
-on stdout, and supports HTTP/1.1 as well as HTTP/2. p0d is beta grade software under active development, `v0.2.4` was
-released 02/05/22.
+on stdout, and supports HTTP/1.1 as well as HTTP/2. p0d is beta grade software under active development, `v0.2.5` was
+released 06/05/22.
 
 ## Up and running
 
