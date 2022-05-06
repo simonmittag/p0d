@@ -143,7 +143,7 @@ func (cfg *Config) validateReqBody() {
 		cfg.setFormDataContentType()
 
 		cfg.Req.FormDataFiles = make(map[string][]byte, 0)
-		for _, fd := range cfg.Req.FormData {
+		for i, fd := range cfg.Req.FormData {
 			for k, v := range fd {
 				if strings.HasPrefix(k, "@") {
 					dat, err := os.ReadFile(v)
@@ -151,6 +151,9 @@ func (cfg *Config) validateReqBody() {
 						cfg.panic(fmt.Sprintf("unable to read file: %s", v))
 					}
 					cfg.Req.FormDataFiles[k] = dat
+					f, _ := os.Open(v)
+					fs, _ := f.Stat()
+					cfg.Req.FormData[i] = map[string]string{k: fs.Name()}
 					dat = nil
 				}
 			}
