@@ -140,7 +140,7 @@ func (cfg *Config) validateReqBody() {
 		if len(cfg.Req.Body) > 0 {
 			cfg.panic("when specifying form data, cannot specify body, use formData param")
 		}
-		cfg.setFormDataContentType()
+		cfg.setDefaultFormDataContentType()
 
 		cfg.Req.FormDataFiles = make(map[string][]byte, 0)
 		for i, fd := range cfg.Req.FormData {
@@ -164,46 +164,54 @@ func (cfg *Config) validateReqBody() {
 }
 
 func (cfg *Config) setDefaultPostContentType() {
-	jsonc := "application/json"
-	jsonct := map[string]string{"Content-Type": jsonc}
-	matched := false
-	for _, h := range cfg.Req.Headers {
-		for k, v := range h {
-			if k == "Content-Type" {
-				matched = true
-				cfg.Req.ContentType = v
-			}
-		}
-	}
-	//we only set default content type if it wasn't specified otherwise.
-	if !matched {
-		cfg.Req.Headers = append(cfg.Req.Headers, jsonct)
-		cfg.Req.ContentType = jsonc
-	}
+	cfg.setContentType("application/json", false)
 }
 
-func (cfg *Config) setFormDataContentType() {
-	const contentType = "Content-Type"
+func (cfg *Config) setDefaultFormDataContentType() {
+	cfg.setContentType("application/x-www-form-urlencoded", false)
+}
+
+func (cfg *Config) setContentType(contentType string, overwrite bool) {
+	const ctkey = "Content-Type"
+	ctobj := map[string]string{ctkey: contentType}
 
 	if len(cfg.Req.Headers) > 0 {
-		//defaults to urlencoded
-		form := "application/x-www-form-urlencoded"
-		formct := map[string]string{contentType: form}
-
 		matched := false
-		for _, h := range cfg.Req.Headers {
-			for k, v := range h {
-				if k == contentType {
+		for i, h := range cfg.Req.Headers {
+			for k, _ := range h {
+				if k == ctkey {
 					matched = true
-					cfg.Req.ContentType = v
+					if overwrite {
+						cfg.Req.Headers[i] = ctobj
+						cfg.Req.ContentType = contentType
+					}
 				}
 			}
 		}
 		if !matched {
-			cfg.Req.Headers = append(cfg.Req.Headers, formct)
-			cfg.Req.ContentType = form
+			cfg.Req.Headers = append(cfg.Req.Headers, ctobj)
+			cfg.Req.ContentType = contentType
+		}
+	} else {
+		cfg.Req.Headers = append(cfg.Req.Headers, ctobj)
+		cfg.Req.ContentType = contentType
+	}
+}
+
+func (cfg *Config) hasContentType(contentType string) bool {
+	for _, h := range cfg.Req.Headers {
+		for k, v := range h {
+			if k == "Content-Type" {
+				if v != contentType {
+					return false
+				}
+			}
 		}
 	}
+	if cfg.Req.ContentType != contentType {
+		return false
+	}
+	return true
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {

@@ -159,3 +159,26 @@ func TestByteCount(t *testing.T) {
 		t.Error("incorrect byte count in binary mode")
 	}
 }
+
+func TestSetDefaultFormDataContentType(t *testing.T) {
+	cfg := Config{}
+	cfg.setContentType(multipartFormdata, false)
+
+	if !cfg.hasContentType(multipartFormdata) {
+		t.Errorf("should be multipart/form-data")
+	}
+
+	//should not overwrite
+	cfg.setContentType(applicationJson, false)
+
+	if !cfg.hasContentType(multipartFormdata) {
+		t.Errorf("should be multipart/form-data")
+	}
+
+	//now it should
+	cfg.setContentType(applicationJson, true)
+
+	if !cfg.hasContentType(applicationJson) {
+		t.Errorf("should be application/json")
+	}
+}
