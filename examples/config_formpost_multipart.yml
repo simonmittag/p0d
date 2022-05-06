@@ -14,4 +14,4 @@ req:
     - "@file1": ./p0d_80.png
     - "@file2": ./README.md
 res:
-  code: 200
+  code: 201

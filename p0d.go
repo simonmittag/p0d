@@ -202,9 +202,12 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			Start: time.Now(),
 		}
 
-		//needs to decide between url encoded, multipart form data and everything else
 		var body io.Reader
 
+		//multipartwriter adds a boundary
+		var mpContentType string
+
+		//needs to decide between url encoded, multipart form data and everything else
 		switch p.Config.Req.ContentType {
 		case applicationXWWWFormUrlEncoded:
 			data := url.Values{}
@@ -222,6 +225,7 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 				for k, v := range fd {
 					if strings.HasPrefix(k, AT) {
 						fw, _ := mpw.CreateFormFile(k, v)
+						mpContentType = mpw.FormDataContentType()
 						io.Copy(fw, bytes.NewReader(p.Config.Req.FormDataFiles[k]))
 					} else {
 						mpw.WriteField(k, v)
@@ -245,7 +249,11 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 		if len(p.Config.Req.Headers) > 0 {
 			for _, h := range p.Config.Req.Headers {
 				for k, v := range h {
-					req.Header.Add(k, v)
+					if k == ct && v == multipartFormdata {
+						req.Header.Set(k, mpContentType)
+					} else {
+						req.Header.Add(k, v)
+					}
 				}
 			}
 		}

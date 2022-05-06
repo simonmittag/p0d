@@ -178,12 +178,15 @@ func (cfg *Config) setContentType(contentType string, overwrite bool) {
 	if len(cfg.Req.Headers) > 0 {
 		matched := false
 		for i, h := range cfg.Req.Headers {
-			for k, _ := range h {
+			for k, v := range h {
 				if k == ctkey {
 					matched = true
 					if overwrite {
 						cfg.Req.Headers[i] = ctobj
 						cfg.Req.ContentType = contentType
+					} else {
+						cfg.Req.Headers[i][ct] = v
+						cfg.Req.ContentType = v
 					}
 				}
 			}
