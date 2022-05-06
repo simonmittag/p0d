@@ -1,6 +1,7 @@
 package p0d
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -54,8 +56,10 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 
 	cfg := Config{
 		Req: Req{
-			Method: "GET",
-			Url:    u,
+			Method:        "GET",
+			Url:           u,
+			FormData:      make([]map[string]string, 0),
+			FormDataFiles: make(map[string][]byte, 0),
 		},
 		Exec: Exec{
 			Threads:         t,
@@ -178,7 +182,10 @@ Main:
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"
-const js = "application/json"
+const applicationJson = "application/json"
+const multipartFormdata = "multipart/form-data"
+const applicationXWWWFormUrlEncoded = "application/x-www-form-urlencoded"
+const AT = "@"
 
 var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
@@ -195,11 +202,11 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 			Start: time.Now(),
 		}
 
-		//needs to decided between url encoded, multipart form data and everything else
-		var body *strings.Reader
-		if len(p.Config.Req.FormData) == 0 {
-			body = strings.NewReader(p.Config.Req.Body)
-		} else {
+		//needs to decide between url encoded, multipart form data and everything else
+		var body io.Reader
+
+		switch p.Config.Req.ContentType {
+		case applicationXWWWFormUrlEncoded:
 			data := url.Values{}
 			for _, fd := range p.Config.Req.FormData {
 				for k, v := range fd {
@@ -207,7 +214,29 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 				}
 			}
 			body = strings.NewReader(data.Encode())
+		case multipartFormdata:
+			var b bytes.Buffer
+			mpw := multipart.NewWriter(&b)
+
+			for _, fd := range p.Config.Req.FormData {
+				for k, v := range fd {
+					if strings.HasPrefix(k, AT) {
+						fw, _ := mpw.CreateFormFile(k, v)
+						io.Copy(fw, bytes.NewReader(p.Config.Req.FormDataFiles[k]))
+					} else {
+						mpw.WriteField(k, v)
+					}
+				}
+			}
+
+			mpw.Close()
+			body = bytes.NewReader(b.Bytes())
+		case applicationJson:
+			fallthrough
+		default:
+			body = strings.NewReader(p.Config.Req.Body)
 		}
+
 		req, _ := http.NewRequest(p.Config.Req.Method,
 			p.Config.Req.Url,
 			body)

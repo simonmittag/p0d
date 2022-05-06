@@ -23,11 +23,13 @@ type Config struct {
 }
 
 type Req struct {
-	Method   string
-	Url      string
-	Headers  []map[string]string
-	Body     string
-	FormData []map[string]string
+	Method        string
+	Url           string
+	Headers       []map[string]string
+	ContentType   string
+	Body          string
+	FormData      []map[string]string
+	FormDataFiles map[string][]byte
 }
 
 type Res struct {
@@ -113,6 +115,18 @@ func (cfg *Config) validate() *Config {
 		cfg.Exec.SpacingMillis = 0
 	}
 
+	cfg.validateReqBody()
+
+	if cfg.Req.Url == "" {
+		cfg.panic("request url not specified")
+	}
+	if cfg.Res.Code == 0 {
+		cfg.Res.Code = 200
+	}
+	return cfg
+}
+
+func (cfg *Config) validateReqBody() {
 	if len(cfg.Req.Body) > 0 {
 		if len(cfg.Req.FormData) > 0 {
 			cfg.panic("when specifying request body, cannot have form data")
@@ -124,48 +138,72 @@ func (cfg *Config) validate() *Config {
 			cfg.panic("when specifying form data, method must be POST")
 		}
 		if len(cfg.Req.Body) > 0 {
-			cfg.panic("when specifying form data, cannot have request body")
+			cfg.panic("when specifying form data, cannot specify body, use formData param")
 		}
-		if len(cfg.Req.Headers) > 0 {
-			//defaults to urlencoded
-			formct := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+		cfg.setFormDataContentType()
 
-			matched := false
-			for i, h := range cfg.Req.Headers {
-				for k, _ := range h {
-					if k == "Content-Type" {
-						cfg.Req.Headers[i] = formct
-						matched = true
+		cfg.Req.FormDataFiles = make(map[string][]byte, 0)
+		for i, fd := range cfg.Req.FormData {
+			for k, v := range fd {
+				if strings.HasPrefix(k, "@") {
+					dat, err := os.ReadFile(v)
+					if err != nil {
+						cfg.panic(fmt.Sprintf("unable to read file: %s", v))
 					}
+					cfg.Req.FormDataFiles[k] = dat
+					f, _ := os.Open(v)
+					fs, _ := f.Stat()
+					cfg.Req.FormData[i] = map[string]string{k: fs.Name()}
+					dat = nil
 				}
-			}
-			if !matched {
-				cfg.Req.Headers = append(cfg.Req.Headers, formct)
 			}
 		}
 	} else if contains(bodyTypes, cfg.Req.Method) {
-		jsonct := map[string]string{"Content-Type": "application/json"}
+		cfg.setDefaultPostContentType()
+	}
+}
+
+func (cfg *Config) setDefaultPostContentType() {
+	jsonc := "application/json"
+	jsonct := map[string]string{"Content-Type": jsonc}
+	matched := false
+	for _, h := range cfg.Req.Headers {
+		for k, v := range h {
+			if k == "Content-Type" {
+				matched = true
+				cfg.Req.ContentType = v
+			}
+		}
+	}
+	//we only set default content type if it wasn't specified otherwise.
+	if !matched {
+		cfg.Req.Headers = append(cfg.Req.Headers, jsonct)
+		cfg.Req.ContentType = jsonc
+	}
+}
+
+func (cfg *Config) setFormDataContentType() {
+	const contentType = "Content-Type"
+
+	if len(cfg.Req.Headers) > 0 {
+		//defaults to urlencoded
+		form := "application/x-www-form-urlencoded"
+		formct := map[string]string{contentType: form}
+
 		matched := false
 		for _, h := range cfg.Req.Headers {
-			for k, _ := range h {
-				if k == "Content-Type" {
+			for k, v := range h {
+				if k == contentType {
 					matched = true
+					cfg.Req.ContentType = v
 				}
 			}
 		}
-		//we only set default content type if it wasn't specified otherwise.
 		if !matched {
-			cfg.Req.Headers = append(cfg.Req.Headers, jsonct)
+			cfg.Req.Headers = append(cfg.Req.Headers, formct)
+			cfg.Req.ContentType = form
 		}
 	}
-
-	if cfg.Req.Url == "" {
-		cfg.panic("request url not specified")
-	}
-	if cfg.Res.Code == 0 {
-		cfg.Res.Code = 200
-	}
-	return cfg
 }
 
 func (cfg Config) scaffoldHttpClient() *http.Client {

@@ -7,9 +7,11 @@ req:
   method: POST
   url: http://localhost:60083/mse6/post
   headers:
-    - Content-Type: "application/x-www-form-urlencoded"
+    - Content-Type: "multipart/form-data"
   formData:
     - key1: value1
     - key2: value2
+    - "@file1": ./p0d_80.png
+    - "@file2": ./README.md
 res:
   code: 200

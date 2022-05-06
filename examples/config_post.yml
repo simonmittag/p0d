@@ -1,6 +1,6 @@
 ---
 exec:
-  durationSeconds: 7200
+  durationSeconds: 30
   threads: 128
   connections: 128
   logsampling: 0.01
