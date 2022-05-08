@@ -54,7 +54,6 @@ type OSStats struct {
 	Pid          int
 	Now          time.Time
 	PidOpenConns int
-	AllOpenConns int
 }
 
 func NewOSStats() *OSStats {
@@ -62,7 +61,6 @@ func NewOSStats() *OSStats {
 		Pid:          os.Getpid(),
 		Now:          time.Now(),
 		PidOpenConns: 0,
-		AllOpenConns: 0,
 	}
 }
 
@@ -79,6 +77,5 @@ func (oss *OSStats) updateOpenConns() {
 			d++
 		}
 	}
-	oss.AllOpenConns = a
 	oss.PidOpenConns = d
 }
