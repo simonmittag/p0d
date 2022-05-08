@@ -9,7 +9,7 @@ import (
 func TestUpdateStats(t *testing.T) {
 	cfg := Config{Res: Res{Code: 200}}
 
-	s := Stats{
+	s := ReqStats{
 		ReqAtmpts:  11,
 		Start:      time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 		ErrorTypes: make(map[string]int),
@@ -102,5 +102,17 @@ func TestUpdateStats(t *testing.T) {
 	}
 	if fmt.Sprintf("%.2f", s.PctErrors) != "7.69" {
 		t.Error("should have errors")
+	}
+}
+
+func TestUpdateOSStats(t *testing.T) {
+	oss := NewOSStats()
+	oss.updateOpenConns()
+}
+
+func BenchmarkUpdateOpenConns(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		oss := NewOSStats()
+		oss.updateOpenConns()
 	}
 }

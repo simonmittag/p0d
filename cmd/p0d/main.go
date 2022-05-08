@@ -63,7 +63,7 @@ func main() {
 	}
 
 	if mode == Cli || mode == File {
-		if pod == nil || pod.Stats.SumErrors > 0 || pod.Interrupted {
+		if pod == nil || pod.ReqStats.SumErrors > 0 || pod.Interrupted {
 			os.Exit(-1)
 		}
 	}

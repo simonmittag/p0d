@@ -29,7 +29,8 @@ type P0d struct {
 	ID             string
 	Config         Config
 	client         *http.Client
-	Stats          *Stats
+	ReqStats       *ReqStats
+	OSStats        []OSStats
 	Start          time.Time
 	Stop           time.Time
 	Output         string
@@ -80,10 +81,11 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 		ID:     createRunId(),
 		Config: cfg,
 		client: cfg.scaffoldHttpClient(),
-		Stats: &Stats{
+		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
+		OSStats:        make([]OSStats, 0),
 		Start:          start,
 		Output:         o,
 		OsMaxOpenFiles: ul,
@@ -111,10 +113,11 @@ func NewP0dFromFile(f string, o string) *P0d {
 		ID:     createRunId(),
 		Config: *cfg,
 		client: cfg.scaffoldHttpClient(),
-		Stats: &Stats{
+		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
+		OSStats:        make([]OSStats, 0),
 		Start:          time.Now(),
 		Output:         o,
 		OsMaxOpenFiles: ul,
@@ -146,11 +149,13 @@ func (p *P0d) Race() {
 	}()
 	p.initOutFile()
 
+	p.initOSStats()
+
 	for i := 0; i < p.Config.Exec.Threads; i++ {
 		go p.doReqAtmpt(ras)
 	}
 
-	p.initLiveWriters(9)
+	p.initLiveWriters(10)
 
 	const prefix string = ""
 	const indent string = "  "
@@ -171,7 +176,7 @@ Main:
 			p.finaliseOutputAndCloseWriters()
 			break Main
 		case ra := <-ras:
-			p.Stats.update(ra, time.Now(), p.Config)
+			p.ReqStats.update(ra, time.Now(), p.Config)
 			p.logRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
@@ -360,30 +365,42 @@ func (p *P0d) logLive() {
 	elpsd := time.Now().Sub(p.Start).Seconds()
 
 	lw := p.liveWriters
-	fmt.Fprintf(lw[0], timefmt("%s"), p.bar.render(elpsd, p))
-
-	fmt.Fprintf(lw[1], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.Stats.ReqAtmpts))))
-	fmt.Fprintf(lw[2], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.Stats.ReqAtmptsPSec))), Cyan("/s"))
-	fmt.Fprintf(lw[3], timefmt("roundtrip latency: %s%s"), Cyan(FGroup(int64(p.Stats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
-	fmt.Fprintf(lw[4], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesRead)))
-	fmt.Fprintf(lw[5], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesReadSec))), Cyan("/s"))
-	fmt.Fprintf(lw[6], timefmt("bytes written: %s"), Cyan(p.Config.byteCount(p.Stats.SumBytesWritten)))
-	fmt.Fprintf(lw[7], timefmt("write throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.Stats.MeanBytesWrittenSec))), Cyan("/s"))
+	i := 0
+	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
+	i++
+	oss := p.latestOSStats()
+	fmt.Fprintf(lw[i], timefmt("Open TCP conns: %s/%s"), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan(FGroup(int64(oss.AllOpenConns))))
+	i++
+	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
+	i++
+	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))), Cyan("/s"))
+	i++
+	fmt.Fprintf(lw[i], timefmt("roundtrip latency: %s%s"), Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
+	i++
+	fmt.Fprintf(lw[i], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
+	i++
+	fmt.Fprintf(lw[i], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))), Cyan("/s"))
+	i++
+	fmt.Fprintf(lw[i], timefmt("bytes written: %s"), Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
+	i++
+	fmt.Fprintf(lw[i], timefmt("write throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))), Cyan("/s"))
 
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumMatchingResponseCodes)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", math.Floor(float64(p.Stats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(lw[8], timefmt("matching HTTP response codes: %v"), mrc)
+		FGroup(int64(p.ReqStats.SumMatchingResponseCodes)),
+		FGroup(int64(p.ReqStats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Floor(float64(p.ReqStats.PctMatchingResponseCodes*100))/100)))
+	i++
+	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
 
 	tte := fmt.Sprintf("%s/%s (%s%%)",
-		FGroup(int64(p.Stats.SumErrors)),
-		FGroup(int64(p.Stats.ReqAtmpts)),
-		fmt.Sprintf("%.2f", math.Ceil(float64(p.Stats.PctErrors*100))/100))
-	if p.Stats.SumErrors > 0 {
-		fmt.Fprintf(lw[9], timefmt("transport errors: %v"), Red(tte))
+		FGroup(int64(p.ReqStats.SumErrors)),
+		FGroup(int64(p.ReqStats.ReqAtmpts)),
+		fmt.Sprintf("%.2f", math.Ceil(float64(p.ReqStats.PctErrors*100))/100))
+	i++
+	if p.ReqStats.SumErrors > 0 {
+		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Red(tte))
 	} else {
-		fmt.Fprintf(lw[9], timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Cyan(tte))
 	}
 
 	//need to flush manually here to keep stdout updated
@@ -391,11 +408,11 @@ func (p *P0d) logLive() {
 }
 
 func (p *P0d) logSummary() {
-	for k, v := range p.Stats.ErrorTypes {
-		pctv := 100 * (float32(v) / float32(p.Stats.ReqAtmpts))
+	for k, v := range p.ReqStats.ErrorTypes {
+		pctv := 100 * (float32(v) / float32(p.ReqStats.ReqAtmpts))
 		err := Red(fmt.Sprintf("  - error: [%s]: %s/%s (%s%%)", k,
 			FGroup(int64(v)),
-			FGroup(int64(p.Stats.ReqAtmpts)),
+			FGroup(int64(p.ReqStats.ReqAtmpts)),
 			fmt.Sprintf("%.2f", math.Ceil(float64(pctv*100))/100)))
 		logv(err)
 	}
@@ -451,6 +468,25 @@ func (p *P0d) initLiveWriters(n int) {
 		}
 	}()
 
+}
+
+func (p *P0d) initOSStats() {
+	go func() {
+		for {
+			oss := NewOSStats()
+			oss.updateOpenConns()
+			p.OSStats = append(p.OSStats, *oss)
+			time.Sleep(time.Second * 1)
+		}
+	}()
+}
+
+func (p *P0d) latestOSStats() OSStats {
+	if len(p.OSStats) == 0 {
+		return *NewOSStats()
+	} else {
+		return p.OSStats[len(p.OSStats)-1]
+	}
 }
 
 func (p *P0d) checkWrite(e error) {
