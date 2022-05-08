@@ -48,7 +48,7 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 		b.WriteString(Yellow(CLOSE).String())
 		//remaining whole seconds
 		t := (time.Second * time.Duration(p.maxSecs-int(curSecs))).Truncate(time.Second)
-		b.WriteString(fmt.Sprintf(" %s", Cyan(durafmt.Parse(t).LimitFirstN(2).String()).String()))
+		b.WriteString(fmt.Sprintf("%s", Cyan(" eta ").String()+Cyan(durafmt.Parse(t).LimitFirstN(2).String()).String()))
 		return b.String()
 	} else {
 		//truncate runtime as seconds

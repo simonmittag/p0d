@@ -1,11 +1,13 @@
 package p0d
 
 import (
+	"github.com/simonmittag/procspy"
 	"math"
+	"os"
 	"time"
 )
 
-type Stats struct {
+type ReqStats struct {
 	Start                    time.Time
 	Elpsd                    time.Duration
 	ReqAtmpts                int
@@ -23,7 +25,7 @@ type Stats struct {
 	ErrorTypes               map[string]int
 }
 
-func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
+func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.Elpsd = now.Sub(s.Start)
 	s.ReqAtmptsPSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
@@ -46,4 +48,34 @@ func (s *Stats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 		s.ErrorTypes[atmpt.ResErr]++
 	}
 	s.PctErrors = 100 * (float32(s.SumErrors) / float32(s.ReqAtmpts))
+}
+
+type OSStats struct {
+	Pid          int
+	Now          time.Time
+	PidOpenConns int
+}
+
+func NewOSStats() *OSStats {
+	return &OSStats{
+		Pid:          os.Getpid(),
+		Now:          time.Now(),
+		PidOpenConns: 0,
+	}
+}
+
+func (oss *OSStats) updateOpenConns() {
+	cs, e := procspy.Connections(true)
+	if e != nil {
+		_ = e
+	}
+	d := 0
+	a := 0
+	for c := cs.Next(); c != nil; c = cs.Next() {
+		a++
+		if c.PID == uint(oss.Pid) {
+			d++
+		}
+	}
+	oss.PidOpenConns = d
 }
