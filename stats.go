@@ -3,7 +3,6 @@ package p0d
 import (
 	"github.com/simonmittag/procspy"
 	"math"
-	"os"
 	"time"
 )
 
@@ -56,26 +55,26 @@ type OSStats struct {
 	PidOpenConns int
 }
 
-func NewOSStats() *OSStats {
+func NewOSStats(pid int) *OSStats {
 	return &OSStats{
-		Pid:          os.Getpid(),
+		Pid:          pid,
 		Now:          time.Now(),
 		PidOpenConns: 0,
 	}
 }
 
 func (oss *OSStats) updateOpenConns() {
+	//TODO: this produces a 0 when it shouldn't. after signalling CTRL+C this often returns intermittent 0
 	cs, e := procspy.Connections(true)
 	if e != nil {
 		_ = e
-	}
-	d := 0
-	a := 0
-	for c := cs.Next(); c != nil; c = cs.Next() {
-		a++
-		if c.PID == uint(oss.Pid) {
-			d++
+	} else {
+		d := 0
+		for c := cs.Next(); c != nil; c = cs.Next() {
+			if c.PID == uint(oss.Pid) {
+				d++
+			}
 		}
+		oss.PidOpenConns = d
 	}
-	oss.PidOpenConns = d
 }

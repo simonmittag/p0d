@@ -96,14 +96,19 @@ func TestDoReqAtmpt(t *testing.T) {
 	//we hack the config's URL to point at our mock server so we can execute the test
 	p.Config.Req.Url = svr.URL
 
-	//blocking channel but we don't want to run crazy inside doReqAtmtp, need only 1 response
-	ras := make(chan ReqAtmpt)
-
+	//nonblocking channel we now use done to signal
+	ras := make(chan ReqAtmpt, 65535)
+	done := make(chan struct{})
 	//fire this off in goroutine
-	go p.doReqAtmpt(ras)
+	go p.doReqAtmpt(ras, done)
 
 	//then wait for signal from completed reqAtmpt.
 	ra := <-ras
+
+	//we tell ReqAtmpt to shut down.
+	done <- struct{}{}
+	close(done)
+
 	if ra.ResCode != 200 {
 		t.Error("should have returned response code 200")
 	}
@@ -131,7 +136,7 @@ func TestRace(t *testing.T) {
 }
 
 func TestRaceWithOutput(t *testing.T) {
-	p := NewP0dFromFile("./examples/config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "testoutput.json")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")
@@ -143,8 +148,6 @@ func TestRaceWithOutput(t *testing.T) {
 
 	//test this only shortly
 	p.Config.Exec.DurationSeconds = 1
-	p.Output = "testoutput.json"
-	p.Config.Exec.DurationSeconds = 3
 	p.Race()
 
 	//for good measure

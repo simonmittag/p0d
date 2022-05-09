@@ -24,22 +24,35 @@ import (
 )
 
 const Version string = "v0.2.7"
+const ua = "User-Agent"
+const N = ""
+const ct = "Content-Type"
+const applicationJson = "application/json"
+const multipartFormdata = "multipart/form-data"
+const applicationXWWWFormUrlEncoded = "application/x-www-form-urlencoded"
+const AT = "@"
+
+var vs = fmt.Sprintf("p0d %s", Version)
+var bodyTypes = []string{"POST", "PUT", "PATCH"}
 
 type P0d struct {
-	ID             string
-	Config         Config
-	client         *http.Client
-	ReqStats       *ReqStats
-	OSStats        []OSStats
-	Start          time.Time
-	Stop           time.Time
-	Output         string
-	outFile        *os.File
-	liveWriters    []io.Writer
-	bar            *ProgressBar
-	Interrupted    bool
-	interrupt      chan os.Signal
-	OsMaxOpenFiles int64
+	ID              string
+	PID             int
+	Config          Config
+	client          *http.Client
+	ReqStats        *ReqStats
+	OSStats         []OSStats
+	Start           time.Time
+	Stop            time.Time
+	Output          string
+	outFile         *os.File
+	liveWriters     []io.Writer
+	bar             *ProgressBar
+	Interrupted     bool
+	interrupt       chan os.Signal
+	stopLiveWriters chan struct{}
+	stopThreads     []chan struct{}
+	OsMaxOpenFiles  int64
 }
 
 type ReqAtmpt struct {
@@ -50,6 +63,14 @@ type ReqAtmpt struct {
 	ResCode  int
 	ResBytes int64
 	ResErr   string
+}
+
+func initStopThreads(cfg Config) []chan struct{} {
+	var v = make([]chan struct{}, 0)
+	for i := 0; i < cfg.Exec.Threads; i++ {
+		v = append(v, make(chan struct{}))
+	}
+	return v
 }
 
 func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
@@ -95,6 +116,8 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 			maxSecs: d,
 			size:    20,
 		},
+		stopLiveWriters: make(chan struct{}),
+		stopThreads:     initStopThreads(cfg),
 	}
 }
 
@@ -127,6 +150,8 @@ func NewP0dFromFile(f string, o string) *P0d {
 			maxSecs: cfg.Exec.DurationSeconds,
 			size:    20,
 		},
+		stopLiveWriters: make(chan struct{}),
+		stopThreads:     initStopThreads(*cfg),
 	}
 }
 
@@ -134,10 +159,8 @@ func (p *P0d) Race() {
 	_, p.OsMaxOpenFiles = getUlimit()
 	p.logBootstrap()
 
-	end := make(chan struct{})
-	ras := make(chan ReqAtmpt, 65535)
-
 	//init timer for race to end
+	end := make(chan struct{})
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		end <- struct{}{}
 	})
@@ -147,33 +170,39 @@ func (p *P0d) Race() {
 			p.outFile.Close()
 		}
 	}()
+
 	p.initOutFile()
-
 	p.initOSStats()
-
-	for i := 0; i < p.Config.Exec.Threads; i++ {
-		go p.doReqAtmpt(ras)
-	}
-
+	ras := make(chan ReqAtmpt, 65535)
+	p.initRequestAtmptThreads(ras)
 	p.initLiveWriters(10)
 
 	const prefix string = ""
 	const indent string = "  "
 	var comma = []byte(",\n")
 	const backspace = "\x1b[%dD"
+
+	winddown := func() {
+		p.Stop = time.Now()
+		p.stopLiveWriter()
+		p.stopReqAtmpts()
+		//p.logLive()
+		//time.Sleep(time.Millisecond * 2000)
+		//p.appendOSSStats()
+		//p.logLive()
+		p.finaliseOutputAndCloseWriters()
+	}
 Main:
 	for {
 		select {
 		case <-p.interrupt:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(p.liveWriters[0], backspace, 2)
-			p.Stop = time.Now()
 			p.Interrupted = true
-			p.finaliseOutputAndCloseWriters()
+			winddown()
 			break Main
 		case <-end:
-			p.Stop = time.Now()
-			p.finaliseOutputAndCloseWriters()
+			winddown()
 			break Main
 		case ra := <-ras:
 			p.ReqStats.update(ra, time.Now(), p.Config)
@@ -184,20 +213,21 @@ Main:
 	log(Cyan("done").String())
 }
 
-const ua = "User-Agent"
-const N = ""
-const ct = "Content-Type"
-const applicationJson = "application/json"
-const multipartFormdata = "multipart/form-data"
-const applicationXWWWFormUrlEncoded = "application/x-www-form-urlencoded"
-const AT = "@"
+func (p *P0d) initRequestAtmptThreads(ras chan ReqAtmpt) {
+	for i := 0; i < p.Config.Exec.Threads; i++ {
+		go p.doReqAtmpt(ras, p.stopThreads[i])
+	}
+}
 
-var vs = fmt.Sprintf("p0d %s", Version)
-var bodyTypes = []string{"POST", "PUT", "PATCH"}
-
-func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
-
+func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt, done <-chan struct{}) {
+ReqAtmpt:
 	for {
+		select {
+		case <-done:
+			break ReqAtmpt
+		default:
+		}
+
 		//introduce artifical request latency
 		if p.Config.Exec.SpacingMillis > 0 {
 			time.Sleep(time.Duration(p.Config.Exec.SpacingMillis) * time.Millisecond)
@@ -303,6 +333,18 @@ func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt) {
 
 		//and report back
 		ras <- ra
+	}
+}
+
+func (p *P0d) stopLiveWriter() {
+	p.stopLiveWriters <- struct{}{}
+	close(p.stopLiveWriters)
+}
+
+func (p *P0d) stopReqAtmpts() {
+	for i := 0; i < len(p.stopThreads); i++ {
+		p.stopThreads[i] <- struct{}{}
+		close(p.stopThreads[i])
 	}
 }
 
@@ -461,29 +503,40 @@ func (p *P0d) initLiveWriters(n int) {
 	p.liveWriters = live
 
 	//now start live logging
-	go func() {
+	go func(done chan struct{}) {
+	LiveWriters:
 		for {
-			p.logLive()
-			time.Sleep(time.Millisecond * 100)
+			select {
+			case <-done:
+				break LiveWriters
+			default:
+				p.logLive()
+				time.Sleep(time.Millisecond * 100)
+			}
 		}
-	}()
-
+	}(p.stopLiveWriters)
 }
 
 func (p *P0d) initOSStats() {
+	p.PID = os.Getpid()
 	go func() {
 		for {
-			oss := NewOSStats()
-			oss.updateOpenConns()
-			p.OSStats = append(p.OSStats, *oss)
+			p.appendOSSStats()
 			time.Sleep(time.Millisecond * 250)
 		}
 	}()
 }
 
+func (p *P0d) appendOSSStats() {
+	oss := NewOSStats(p.PID)
+	oss.updateOpenConns()
+	p.OSStats = append(p.OSStats, *oss)
+}
+
 func (p *P0d) latestOSStats() OSStats {
+	//first time this runs OSS Stats may not have been initialized
 	if len(p.OSStats) == 0 {
-		return *NewOSStats()
+		return *NewOSStats(os.Getpid())
 	} else {
 		return p.OSStats[len(p.OSStats)-1]
 	}

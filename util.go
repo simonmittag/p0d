@@ -94,7 +94,7 @@ func PrintLogo() (int, error) {
 			Cyan("\n ..==++.").String()+Red(" '▔▔//' ").String()+Yellow("\\__/").String()+Red(" \\\\▔▔▔").String()+Cyan("  ++  =++").String()+
 			Cyan("\n     =+=").String()+Red("   )/ // ǀǀ \\\\ \\)").String()+Cyan("  .+=  =++").String()+
 			Cyan("\n     .++=").String()+Red("    ))  ))  ))").String()+Cyan("   .++=  =++").String()+
-			Cyan("\n      ====.").String()+Red("       '     ").String()+Cyan(" .=+=+++++=").String()+
+			Cyan("\n      ====.").String()+Red("       '    ").String()+Cyan(" =+=+++++=").String()+
 			"\n")
 }
 
