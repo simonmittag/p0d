@@ -369,7 +369,7 @@ func (p *P0d) logLive() {
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 	i++
 	oss := p.latestOSStats()
-	fmt.Fprintf(lw[i], timefmt("TCP open conns: %s"), Cyan(FGroup(int64(oss.PidOpenConns))))
+	fmt.Fprintf(lw[i], timefmt("TCP open conns: %s%s%s"), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Connections))))
 	i++
 	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
 	i++
@@ -476,7 +476,7 @@ func (p *P0d) initOSStats() {
 			oss := NewOSStats()
 			oss.updateOpenConns()
 			p.OSStats = append(p.OSStats, *oss)
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 250)
 		}
 	}()
 }
