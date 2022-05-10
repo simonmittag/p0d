@@ -77,7 +77,7 @@ func TestNewP0dWithValues(t *testing.T) {
 
 func TestLogBootstrap(t *testing.T) {
 	p := NewP0dFromFile("./examples/config_get.yml", "")
-	p.logBootstrap()
+	p.initLog()
 }
 
 func TestLogSummary(t *testing.T) {
@@ -100,7 +100,7 @@ func TestDoReqAtmpt(t *testing.T) {
 	ras := make(chan ReqAtmpt, 65535)
 	done := make(chan struct{})
 	//fire this off in goroutine
-	go p.doReqAtmpt(ras, done)
+	go p.doReqAtmpts(ras, done)
 
 	//then wait for signal from completed reqAtmpt.
 	ra := <-ras

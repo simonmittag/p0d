@@ -158,7 +158,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 
 func (p *P0d) Race() {
 	_, p.OsMaxOpenFiles = getUlimit()
-	p.logBootstrap()
+	p.initLog()
 
 	//init timer for race to end
 	end := make(chan struct{})
@@ -176,7 +176,7 @@ func (p *P0d) Race() {
 	p.initOSStats()
 	ras := make(chan ReqAtmpt, 65535)
 	p.initReqAtmpts(ras)
-	p.initLiveWriters(10)
+	p.initLiveWriterFastLoop(10)
 
 	const prefix string = ""
 	const indent string = "  "
@@ -185,13 +185,13 @@ func (p *P0d) Race() {
 
 	winddown := func() {
 		p.Stop = time.Now()
-		p.stopLiveWriter()
+		p.stopLiveWriterFastLoop()
 		p.stopReqAtmpts()
-		//p.logLive()
+		//p.doLogLive()
 		//time.Sleep(time.Millisecond * 2000)
-		//p.appendOSSStats()
-		//p.logLive()
-		p.finaliseOutputAndCloseWriters()
+		//p.doOSSStats()
+		//p.doLogLive()
+		p.closeLiveWritersAndSummarize()
 	}
 Main:
 	for {
@@ -207,7 +207,7 @@ Main:
 			break Main
 		case ra := <-ras:
 			p.ReqStats.update(ra, time.Now(), p.Config)
-			p.logRequestAttempt(ra, prefix, indent, comma)
+			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
 
@@ -220,12 +220,12 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 		for i := 0; i < p.Config.Exec.Threads; i++ {
 			//stagger the initialisation so we can watch ramp up live.
 			time.Sleep(time.Millisecond * staggerThreadsMs)
-			go p.doReqAtmpt(ras, p.stopThreads[i])
+			go p.doReqAtmpts(ras, p.stopThreads[i])
 		}
 	}()
 }
 
-func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt, done <-chan struct{}) {
+func (p *P0d) doReqAtmpts(ras chan<- ReqAtmpt, done <-chan struct{}) {
 ReqAtmpt:
 	for {
 		select {
@@ -342,11 +342,6 @@ ReqAtmpt:
 	}
 }
 
-func (p *P0d) stopLiveWriter() {
-	p.stopLiveWriters <- struct{}{}
-	close(p.stopLiveWriters)
-}
-
 func (p *P0d) stopReqAtmpts() {
 	//again don't block because execution continues on with live udpates
 	go func() {
@@ -359,24 +354,61 @@ func (p *P0d) stopReqAtmpts() {
 	}()
 }
 
-func (p *P0d) finaliseOutputAndCloseWriters() {
+func (p *P0d) initLiveWriterFastLoop(n int) {
+	//start live logging
+
+	l0 := uilive.New()
+	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
+	l0.RefreshInterval = time.Hour * 24 * 30
+	l0.Start()
+
+	live := make([]io.Writer, 0)
+	live = append(live, l0)
+	for i := 0; i <= n; i++ {
+		live = append(live, live[0].(*uilive.Writer).Newline())
+	}
+
+	//do this before setting off goroutines
+	p.liveWriters = live
+
+	//now start live logging
+	go func(done chan struct{}) {
+	LiveWriters:
+		for {
+			select {
+			case <-done:
+				break LiveWriters
+			default:
+				p.doLogLive()
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+	}(p.stopLiveWriters)
+}
+
+func (p *P0d) stopLiveWriterFastLoop() {
+	p.stopLiveWriters <- struct{}{}
+	close(p.stopLiveWriters)
+}
+
+func (p *P0d) closeLiveWritersAndSummarize() {
 	//call final log manually to prevent differences between summary and what's on screen in live log.
-	p.logLive()
+	p.doLogLive()
 	p.liveWriters[0].(*uilive.Writer).Stop()
 	p.logSummary()
 
 	if len(p.Output) > 0 {
 		log("finalizing log file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, "", "  ")
-		p.checkWrite(je)
+		p.outFileCheckWrite(je)
 		_, we := p.outFile.Write(j)
-		p.checkWrite(we)
+		p.outFileCheckWrite(we)
 		_, we = p.outFile.Write([]byte("]"))
-		p.checkWrite(we)
+		p.outFileCheckWrite(we)
 	}
 }
 
-func (p *P0d) logBootstrap() {
+func (p *P0d) initLog() {
 	PrintLogo()
 	PrintVersion()
 	fmt.Printf("\n")
@@ -414,14 +446,14 @@ func (p *P0d) logBootstrap() {
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
-func (p *P0d) logLive() {
+func (p *P0d) doLogLive() {
 	elpsd := time.Now().Sub(p.Start).Seconds()
 
 	lw := p.liveWriters
 	i := 0
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 	i++
-	oss := p.latestOSStats()
+	oss := p.getOSStats()
 	fmt.Fprintf(lw[i], timefmt("TCP open conns: %s%s%s"), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Connections))))
 	i++
 	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
@@ -471,94 +503,62 @@ func (p *P0d) logSummary() {
 	}
 }
 
-func (p *P0d) logRequestAttempt(ra ReqAtmpt, prefix string, indent string, comma []byte) {
+func (p *P0d) initOutFile() {
+	var oe error
+	if len(p.Output) > 0 {
+		p.outFile, oe = os.Create(p.Output)
+		p.outFileCheckWrite(oe)
+		_, we := p.outFile.Write([]byte("["))
+		p.outFileCheckWrite(we)
+	}
+}
+
+func (p *P0d) outFileCheckWrite(e error) {
+	if e != nil {
+		fmt.Println(e)
+		msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
+		logv(msg)
+		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	}
+}
+
+func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, comma []byte) {
 	if len(p.Output) > 0 {
 		rand.Seed(time.Now().UnixNano())
 		//only sample a subset of requests
 		if rand.Float32() < p.Config.Exec.LogSampling {
 			j, je := json.MarshalIndent(ra, prefix, indent)
-			p.checkWrite(je)
+			p.outFileCheckWrite(je)
 			_, we := p.outFile.Write(j)
-			p.checkWrite(we)
+			p.outFileCheckWrite(we)
 			_, we = p.outFile.Write(comma)
-			p.checkWrite(we)
+			p.outFileCheckWrite(we)
 		}
 	}
-}
-
-func (p *P0d) initOutFile() {
-	var oe error
-	if len(p.Output) > 0 {
-		p.outFile, oe = os.Create(p.Output)
-		p.checkWrite(oe)
-		_, we := p.outFile.Write([]byte("["))
-		p.checkWrite(we)
-	}
-}
-
-func (p *P0d) initLiveWriters(n int) {
-	//start live logging
-
-	l0 := uilive.New()
-	//this prevents the writer from flushing inbetween lines. we flush manually after each iteration
-	l0.RefreshInterval = time.Hour * 24 * 30
-	l0.Start()
-
-	live := make([]io.Writer, 0)
-	live = append(live, l0)
-	for i := 0; i <= n; i++ {
-		live = append(live, live[0].(*uilive.Writer).Newline())
-	}
-
-	//do this before setting off goroutines
-	p.liveWriters = live
-
-	//now start live logging
-	go func(done chan struct{}) {
-	LiveWriters:
-		for {
-			select {
-			case <-done:
-				break LiveWriters
-			default:
-				p.logLive()
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-	}(p.stopLiveWriters)
 }
 
 func (p *P0d) initOSStats() {
 	p.PID = os.Getpid()
 	go func() {
 		for {
-			p.appendOSSStats()
+			p.doOSSStats()
 			time.Sleep(time.Millisecond * 250)
 		}
 	}()
 }
 
-func (p *P0d) appendOSSStats() {
+func (p *P0d) doOSSStats() {
 	oss := NewOSStats(p.PID)
 	oss.updateOpenConns()
 	p.OSStats = append(p.OSStats, *oss)
 }
 
-func (p *P0d) latestOSStats() OSStats {
+func (p *P0d) getOSStats() OSStats {
 	//first time this runs OSS Stats may not have been initialized
 	if len(p.OSStats) == 0 {
 		return *NewOSStats(os.Getpid())
 	} else {
 		return p.OSStats[len(p.OSStats)-1]
-	}
-}
-
-func (p *P0d) checkWrite(e error) {
-	if e != nil {
-		fmt.Println(e)
-		msg := Red(fmt.Sprintf("unable to write to output file %s", p.Output))
-		logv(msg)
-		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 	}
 }
 
