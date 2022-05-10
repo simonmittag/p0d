@@ -87,14 +87,15 @@ func ByteCountSI(b int64) string {
 }
 func PrintLogo() (int, error) {
 	return fmt.Printf("%v",
-		Cyan("\n         .=+++++++=.").String()+Red("      ,_     ").String()+Cyan("=++++++==").String()+
-			Cyan("\n         ++=  .++.").String()+Red("    ((  ((  ((").String()+Cyan("   .++=  =+=").String()+
-			Cyan("\n         ++.  =+=").String()+Red("   (\\ \\\\ ǀǀ // /)").String()+Cyan("   +=  =++").String()+
-			Cyan("\n         =++==++.").String()+Red("  ___\\\\ ").String()+Yellow("/‾‾\\").String()+Red(" '//__,").String()+Cyan(" ++  =++").String()+
-			Cyan("\n          ..==++.").String()+Red(" '▔▔//' ").String()+Yellow("\\__/").String()+Red(" \\\\▔▔▔").String()+Cyan("  ++  =++").String()+
-			Cyan("\n              =+=").String()+Red("   )/ // ǀǀ \\\\ \\)").String()+Cyan("  .+=  =++").String()+
-			Cyan("\n              .++=").String()+Red("    ))  ))  ))").String()+Cyan("   .++=  =++").String()+
-			Cyan("\n               ====.").String()+Red("      ‾'    ").String()+Cyan(" =+=+++++=").String()+
+		Cyan("\n        .╬╠╠╠╠╠╠╠╠╠╬`").String()+Red("     ╠╠  ,╬╠     ").String()+Cyan("╙╠╠╠╠╠╠╠╠╠φ").String()+
+			Cyan("\n        ╠╠╠╙   ╠╠╠╙").String()+Red("   ╠╬ε └╠ε ╠╩  ╔#▒  ").String()+Cyan("`╠╠╠   ╙╠╠╠").String()+
+			Cyan("\n        ╠╠╠   ]╠╠╩").String()+Red("     └╝▒ ╙Γ ╩ ╔╬╩`     ").String()+Cyan("╠╠ε   ╠╠╠").String()+
+			Cyan("\n        ╠╠╠ε  ╚╠╠").String()+Red("   ╝╠▒╗, \"╓δΘ╦\",╓φ▒╬╠▒ε ").String()+Cyan("╚╠▒   ╠╠╠").String()+
+			Cyan("\n         ╚╠╠╠╠╠╠╠").String()+Red("         ,╠(").String()+Yellow("⬤").String()+Red(" ╩≈╔╓╓╓,   ").String()+Cyan("]╠╠   ╠╠╠").String()+
+			Cyan("\n              ╠╠╠⌐").String()+Red(" ²╠╠╝╩\"²╓∩⌠╙╠`φ, `╙╝╠  ").String()+Cyan("╠╠╠   ╠╠╠").String()+
+			Cyan("\n              [╠╠╠ ").String()+Red("     ╓@╬  ╬ ╠ε ╙╠φ   ").String()+Cyan(",╠╠Γ   ╠╠╠").String()+
+			Cyan("\n               ╠╠╠▒").String()+Red("  '╝╩\" .╬╠ ]╠ε  ╚╩  ").String()+Cyan("╔╠╠╠   ╓╠╠╠").String()+
+			Cyan("\n               ╚╠╠╠╠φ,").String()+Red("    ╠╩   ╠╛     ").String()+Cyan("φ╠╠╠╠╠╠╠╠╠╩").String()+
 			"\n")
 }
 
