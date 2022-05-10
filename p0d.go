@@ -31,6 +31,7 @@ const applicationJson = "application/json"
 const multipartFormdata = "multipart/form-data"
 const applicationXWWWFormUrlEncoded = "application/x-www-form-urlencoded"
 const AT = "@"
+const staggerThreadsMs = 25
 
 var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
@@ -174,7 +175,7 @@ func (p *P0d) Race() {
 	p.initOutFile()
 	p.initOSStats()
 	ras := make(chan ReqAtmpt, 65535)
-	p.initRequestAtmptThreads(ras)
+	p.initReqAtmpts(ras)
 	p.initLiveWriters(10)
 
 	const prefix string = ""
@@ -213,10 +214,15 @@ Main:
 	log(Cyan("done").String())
 }
 
-func (p *P0d) initRequestAtmptThreads(ras chan ReqAtmpt) {
-	for i := 0; i < p.Config.Exec.Threads; i++ {
-		go p.doReqAtmpt(ras, p.stopThreads[i])
-	}
+func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
+	//don't block because execution continues on to live updates
+	go func() {
+		for i := 0; i < p.Config.Exec.Threads; i++ {
+			//stagger the initialisation so we can watch ramp up live.
+			time.Sleep(time.Millisecond * staggerThreadsMs)
+			go p.doReqAtmpt(ras, p.stopThreads[i])
+		}
+	}()
 }
 
 func (p *P0d) doReqAtmpt(ras chan<- ReqAtmpt, done <-chan struct{}) {
@@ -342,10 +348,15 @@ func (p *P0d) stopLiveWriter() {
 }
 
 func (p *P0d) stopReqAtmpts() {
-	for i := 0; i < len(p.stopThreads); i++ {
-		p.stopThreads[i] <- struct{}{}
-		close(p.stopThreads[i])
-	}
+	//again don't block because execution continues on with live udpates
+	go func() {
+		for i := 0; i < len(p.stopThreads); i++ {
+			//stagger the off ramp between threads so we can it live.
+			time.Sleep(time.Millisecond * staggerThreadsMs)
+			p.stopThreads[i] <- struct{}{}
+			close(p.stopThreads[i])
+		}
+	}()
 }
 
 func (p *P0d) finaliseOutputAndCloseWriters() {
