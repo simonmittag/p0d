@@ -213,6 +213,8 @@ func (cfg *Config) hasContentType(contentType string) bool {
 	return true
 }
 
+const httpIdleTimeout = time.Duration(1) * time.Second
+
 func (cfg Config) scaffoldHttpClient() *http.Client {
 	tlsc := &tls.Config{
 		MinVersion:         tls.VersionTLS11,
@@ -232,7 +234,7 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		MaxConnsPerHost:     cfg.Exec.Concurrency,
 		MaxIdleConns:        cfg.Exec.Concurrency,
 		MaxIdleConnsPerHost: cfg.Exec.Concurrency,
-		IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		IdleConnTimeout:     httpIdleTimeout,
 		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 

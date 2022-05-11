@@ -464,7 +464,7 @@ func (p *P0d) doLogLive() {
 			connMsg += Cyan(" (drained)").String()
 		}
 	} else if oss.PidOpenConns < p.Config.Exec.Concurrency {
-		connMsg += Cyan(" (pooling)").String()
+		connMsg += Cyan(" (ramping up)").String()
 	}
 	fmt.Fprintf(lw[i], timefmt(connMsg), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
 	i++
