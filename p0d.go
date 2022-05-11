@@ -185,12 +185,16 @@ func (p *P0d) Race() {
 
 	winddown := func() {
 		p.Stop = time.Now()
-		p.stopLiveWriterFastLoop()
 		p.stopReqAtmpts()
-		//p.doLogLive()
-		//time.Sleep(time.Millisecond * 2000)
-		//p.doOSSStats()
-		//p.doLogLive()
+		p.stopLiveWriterFastLoop()
+	Drain:
+		for i := 0; i < 100; i++ {
+			if p.getOSStats().PidOpenConns == 0 {
+				break Drain
+			}
+			time.Sleep(time.Millisecond * 100)
+			p.doLogLive()
+		}
 		p.closeLiveWritersAndSummarize()
 	}
 Main:
@@ -454,7 +458,17 @@ func (p *P0d) doLogLive() {
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 	i++
 	oss := p.getOSStats()
-	fmt.Fprintf(lw[i], timefmt("TCP open conns: %s%s%s"), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Connections))))
+	connMsg := "TCP open conns: %s%s%s"
+	if p.Stop.Nanosecond() > 0 {
+		if oss.PidOpenConns > 0 {
+			connMsg += Cyan(" (draining) ").String()
+		} else {
+			connMsg += Cyan(" (drained)").String()
+		}
+	} else if oss.PidOpenConns < p.Config.Exec.Connections {
+		connMsg += Cyan(" (pooling)").String()
+	}
+	fmt.Fprintf(lw[i], timefmt(connMsg), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Connections))))
 	i++
 	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
 	i++
@@ -556,7 +570,9 @@ func (p *P0d) doOSSStats() {
 func (p *P0d) getOSStats() OSStats {
 	//first time this runs OSS Stats may not have been initialized
 	if len(p.OSStats) == 0 {
-		return *NewOSStats(os.Getpid())
+		oss := *NewOSStats(os.Getpid())
+		oss.PidOpenConns = 0
+		return oss
 	} else {
 		return p.OSStats[len(p.OSStats)-1]
 	}
