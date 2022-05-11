@@ -68,13 +68,13 @@ type ReqAtmpt struct {
 
 func initStopThreads(cfg Config) []chan struct{} {
 	var v = make([]chan struct{}, 0)
-	for i := 0; i < cfg.Exec.Threads; i++ {
+	for i := 0; i < cfg.Exec.Concurrency; i++ {
 		v = append(v, make(chan struct{}))
 	}
 	return v
 }
 
-func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
+func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 	hv, _ := strconv.ParseFloat(h, 32)
 
 	cfg := Config{
@@ -85,9 +85,8 @@ func NewP0dWithValues(t int, c int, d int, u string, h string, o string) *P0d {
 			FormDataFiles: make(map[string][]byte, 0),
 		},
 		Exec: Exec{
-			Threads:         t,
 			DurationSeconds: d,
-			Connections:     c,
+			Concurrency:     c,
 			HttpVersion:     float32(hv),
 		},
 	}
@@ -221,7 +220,7 @@ Main:
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 	//don't block because execution continues on to live updates
 	go func() {
-		for i := 0; i < p.Config.Exec.Threads; i++ {
+		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
 			time.Sleep(time.Millisecond * staggerThreadsMs)
 			go p.doReqAtmpts(ras, p.stopThreads[i])
@@ -423,10 +422,10 @@ func (p *P0d) initLog() {
 	if p.OsMaxOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		log("%v", msg)
-	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Connections) {
-		msg := fmt.Sprintf("detected low OS max open file limit %s, reduce connections from %s",
+	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Concurrency) {
+		msg := fmt.Sprintf("detected low OS max open file limit %s, reduce concurrency from %s",
 			Red(FGroup(int64(p.OsMaxOpenFiles))),
-			Red(FGroup(int64(p.Config.Exec.Connections))))
+			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		log(msg)
 	} else {
 		ul, _ := getUlimit()
@@ -436,8 +435,7 @@ func (p *P0d) initLog() {
 	log("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
-	log("parallel thread(s): %s", Yellow(FGroup(int64(p.Config.Exec.Threads))))
-	log("max TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Connections))))
+	log("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
 	log("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
@@ -458,17 +456,17 @@ func (p *P0d) doLogLive() {
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 	i++
 	oss := p.getOSStats()
-	connMsg := "TCP open conns: %s%s%s"
+	connMsg := "concurrent TCP conns: %s%s%s"
 	if p.Stop.Nanosecond() > 0 {
 		if oss.PidOpenConns > 0 {
 			connMsg += Cyan(" (draining) ").String()
 		} else {
 			connMsg += Cyan(" (drained)").String()
 		}
-	} else if oss.PidOpenConns < p.Config.Exec.Connections {
+	} else if oss.PidOpenConns < p.Config.Exec.Concurrency {
 		connMsg += Cyan(" (pooling)").String()
 	}
-	fmt.Fprintf(lw[i], timefmt(connMsg), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Connections))))
+	fmt.Fprintf(lw[i], timefmt(connMsg), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
 	i++
 	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
 	i++

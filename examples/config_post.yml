@@ -1,8 +1,7 @@
 ---
 exec:
   durationSeconds: 30
-  threads: 128
-  connections: 128
+  concurrency: 128
   logsampling: 0.01
 req:
   method: POST

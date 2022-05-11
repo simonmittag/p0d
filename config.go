@@ -39,8 +39,7 @@ type Res struct {
 type Exec struct {
 	Mode               string
 	DurationSeconds    int
-	Threads            int
-	Connections        int
+	Concurrency        int
 	DialTimeoutSeconds int64
 	LogSampling        float32
 	SpacingMillis      int64
@@ -83,11 +82,8 @@ func (cfg *Config) validate() *Config {
 		cfg.Req.Method = "GET"
 	}
 
-	if cfg.Exec.Threads == 0 {
-		cfg.Exec.Threads = 1
-	}
-	if cfg.Exec.Connections == 0 {
-		cfg.Exec.Connections = 1
+	if cfg.Exec.Concurrency == 0 {
+		cfg.Exec.Concurrency = 1
 	}
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10
@@ -233,15 +229,15 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		//TLS handshake timeout is the same as connection timeout
 		TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		TLSClientConfig:     tlsc,
-		MaxConnsPerHost:     cfg.Exec.Connections,
-		MaxIdleConns:        cfg.Exec.Connections,
-		MaxIdleConnsPerHost: cfg.Exec.Connections,
+		MaxConnsPerHost:     cfg.Exec.Concurrency,
+		MaxIdleConns:        cfg.Exec.Concurrency,
+		MaxIdleConnsPerHost: cfg.Exec.Concurrency,
 		IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
-	if cfg.Exec.Connections == UNLIMITED {
+	if cfg.Exec.Concurrency == UNLIMITED {
 		t.DisableKeepAlives = true
 		logv(Yellow("transport connection pool disabled for http/1.1"))
 	}

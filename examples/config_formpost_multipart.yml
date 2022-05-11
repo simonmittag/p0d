@@ -1,8 +1,7 @@
 ---
 exec:
   durationSeconds: 5
-  threads: 5
-  connections: 5
+  concurrency: 5
 req:
   method: POST
   url: http://localhost:60083/mse6/formpost

@@ -13,17 +13,14 @@ func TestNewP0dFromFile(t *testing.T) {
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
-	if p.Config.Exec.Connections != 128 {
-		t.Error("incorrect connections")
+	if p.Config.Exec.Concurrency != 128 {
+		t.Error("incorrect concurrency")
 	}
 	if p.Config.Exec.DurationSeconds != 30 {
 		t.Error("incorrect duration seconds")
 	}
 	if p.Config.Exec.DialTimeoutSeconds != 3 {
 		t.Error("incorrect dialtimeout seconds")
-	}
-	if p.Config.Exec.Threads != 128 {
-		t.Error("incorrect threads")
 	}
 	if p.Config.Req.Method != "GET" {
 		t.Error("incorrect method")
@@ -40,22 +37,19 @@ func TestNewP0dFromFile(t *testing.T) {
 }
 
 func TestNewP0dWithValues(t *testing.T) {
-	p := NewP0dWithValues(8, 7, 6, "http://localhost/", "1.1", "")
+	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "")
 
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
-	if p.Config.Exec.Connections != 7 {
-		t.Error("incorrect connections")
+	if p.Config.Exec.Concurrency != 7 {
+		t.Error("incorrect concurrency")
 	}
 	if p.Config.Exec.DurationSeconds != 6 {
 		t.Error("incorrect duration seconds")
 	}
 	if p.Config.Exec.DialTimeoutSeconds != 3 {
 		t.Error("incorrect dialtimeout seconds")
-	}
-	if p.Config.Exec.Threads != 8 {
-		t.Error("incorrect threads")
 	}
 	if p.Config.Exec.HttpVersion != 1.1 {
 		t.Error("incorrect http version")

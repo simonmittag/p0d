@@ -38,14 +38,8 @@ func TestEmptyConfigValidate(t *testing.T) {
 	if got.Exec.SpacingMillis != 0 {
 		t.Error("invalid default spacing millis")
 	}
-	if got.Exec.Threads != 1 {
+	if got.Exec.Concurrency != 1 {
 		t.Error("invalid default threads")
-	}
-	if got.Exec.Connections != 1 {
-		t.Error("invalid default connections")
-	}
-	if got.Exec.Connections != 1 {
-		t.Error("invalid default connections")
 	}
 }
 
