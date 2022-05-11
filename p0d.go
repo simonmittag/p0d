@@ -472,7 +472,7 @@ func (p *P0d) doLogLive() {
 	i++
 	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))), Cyan("/s"))
 	i++
-	fmt.Fprintf(lw[i], timefmt("roundtrip latency: %s%s"), Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
+	fmt.Fprintf(lw[i], timefmt("mean roundtrip latency: %s%s"), Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
 	i++
 	fmt.Fprintf(lw[i], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
 	i++
