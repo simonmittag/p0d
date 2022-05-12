@@ -11,10 +11,13 @@ type ReqStats struct {
 	Elpsd                    time.Duration
 	ReqAtmpts                int
 	ReqAtmptsPSec            int
+	MaxReqAtmptsPSec         int
 	SumBytesRead             int64
 	MeanBytesReadSec         int
+	MaxBytesReadSec          int
 	SumBytesWritten          int64
 	MeanBytesWrittenSec      int
+	MaxBytesWrittenSec       int
 	SumElpsdAtmptLatencyNs   time.Duration
 	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
@@ -28,12 +31,21 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.Elpsd = now.Sub(s.Start)
 	s.ReqAtmptsPSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
+	if s.ReqAtmptsPSec > s.MaxReqAtmptsPSec {
+		s.MaxReqAtmptsPSec = s.ReqAtmptsPSec
+	}
 
 	s.SumBytesRead += atmpt.ResBytes
 	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
+	if s.MeanBytesReadSec > s.MaxBytesReadSec {
+		s.MaxBytesReadSec = s.MeanBytesReadSec
+	}
 
 	s.SumBytesWritten += atmpt.ReqBytes
 	s.MeanBytesWrittenSec = int(math.Floor(float64(s.SumBytesWritten) / s.Elpsd.Seconds()))
+	if s.MeanBytesWrittenSec > s.MaxBytesWrittenSec {
+		s.MaxBytesWrittenSec = s.MeanBytesWrittenSec
+	}
 	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
 

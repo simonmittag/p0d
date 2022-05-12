@@ -454,6 +454,7 @@ func (p *P0d) doLogLive() {
 	lw := p.liveWriters
 	i := 0
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
+
 	i++
 	oss := p.getOSStats()
 	connMsg := "concurrent TCP conns: %s%s%s"
@@ -466,34 +467,60 @@ func (p *P0d) doLogLive() {
 	} else if oss.PidOpenConns < p.Config.Exec.Concurrency {
 		connMsg += Cyan(" (ramping up)").String()
 	}
-	fmt.Fprintf(lw[i], timefmt(connMsg), Cyan(FGroup(int64(oss.PidOpenConns))), Cyan("/"), Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
-	i++
-	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
-	i++
-	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s"), Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))), Cyan("/s"))
-	i++
-	fmt.Fprintf(lw[i], timefmt("mean roundtrip latency: %s%s"), Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))), Cyan("ms"))
-	i++
-	fmt.Fprintf(lw[i], timefmt("bytes read: %s"), Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
-	i++
-	fmt.Fprintf(lw[i], timefmt("read throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))), Cyan("/s"))
-	i++
-	fmt.Fprintf(lw[i], timefmt("bytes written: %s"), Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
-	i++
-	fmt.Fprintf(lw[i], timefmt("write throughput: %s%s"), Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))), Cyan("/s"))
+	fmt.Fprintf(lw[i], timefmt(connMsg),
+		Cyan(FGroup(int64(oss.PidOpenConns))),
+		Cyan("/"),
+		Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
 
+	i++
+	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"),
+		Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
+
+	i++
+	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s max: %s%s"),
+		Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))),
+		Cyan("/s"),
+		Magenta(FGroup(int64(p.ReqStats.MaxReqAtmptsPSec))),
+		Magenta("/s"))
+
+	i++
+	fmt.Fprintf(lw[i], timefmt("mean roundtrip latency: %s%s"),
+		Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))),
+		Cyan("ms"))
+
+	i++
+	fmt.Fprintf(lw[i], timefmt("bytes read: %s"),
+		Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
+
+	i++
+	fmt.Fprintf(lw[i], timefmt("read throughput: %s%s max: %s%s"),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))),
+		Cyan("/s"),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadSec))),
+		Magenta("/s"))
+
+	i++
+	fmt.Fprintf(lw[i], timefmt("bytes written: %s"),
+		Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
+	i++
+	fmt.Fprintf(lw[i], timefmt("write throughput: %s%s max: %s%s"),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))),
+		Cyan("/s"),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenSec))),
+		Magenta("/s"))
+
+	i++
 	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumMatchingResponseCodes)),
 		FGroup(int64(p.ReqStats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.ReqStats.PctMatchingResponseCodes*100))/100)))
-	i++
 	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
 
+	i++
 	tte := fmt.Sprintf("%s/%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumErrors)),
 		FGroup(int64(p.ReqStats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.ReqStats.PctErrors*100))/100))
-	i++
 	if p.ReqStats.SumErrors > 0 {
 		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Red(tte))
 	} else {
