@@ -173,7 +173,7 @@ func (p *P0d) Race() {
 	_, p.OsMaxOpenFiles = getUlimit()
 	p.initLog()
 
-	//init timer for race to end
+	//init timer for trigger end to totalruntime
 	end := make(chan struct{})
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
 		end <- struct{}{}
@@ -235,14 +235,16 @@ Main:
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
-	staggerThreadsMs := 25
+	staggerThreadsDuration := time.Duration(
+		float64(time.Second) * (float64(p.Config.Exec.RampSeconds) / float64(p.Config.Exec.Concurrency)),
+	)
 
 	//don't block because execution continues on to live updates
 	go func() {
 		p.TimerPhase = RampUp
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
-			time.Sleep(time.Millisecond * time.Duration(staggerThreadsMs))
+			time.Sleep(staggerThreadsDuration)
 			go p.doReqAtmpts(ras, p.stopThreads[i])
 		}
 		p.TimerPhase = Main

@@ -8,6 +8,7 @@ import (
 	. "github.com/logrusorgru/aurora"
 	"golang.org/x/net/http2"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -39,6 +40,7 @@ type Res struct {
 type Exec struct {
 	Mode               string
 	DurationSeconds    int
+	RampSeconds        int
 	Concurrency        int
 	DialTimeoutSeconds int64
 	LogSampling        float32
@@ -87,6 +89,18 @@ func (cfg *Config) validate() *Config {
 	}
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10
+	} else {
+		if cfg.Exec.DurationSeconds < 3 {
+			cfg.panic("duration cannot be less than 3 seconds")
+		}
+	}
+
+	if cfg.Exec.RampSeconds == 0 {
+		cfg.Exec.RampSeconds = int(math.Ceil(float64(cfg.Exec.DurationSeconds) / 10))
+	} else {
+		if float64(cfg.Exec.RampSeconds) > (float64(cfg.Exec.DurationSeconds) / 2) {
+			cfg.panic("ramp time cannot be longer than half the duration")
+		}
 	}
 	if cfg.Exec.DialTimeoutSeconds == 0 {
 		cfg.Exec.DialTimeoutSeconds = 3

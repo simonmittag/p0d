@@ -1,6 +1,7 @@
 ---
 exec:
   durationSeconds: 30
+  rampSeconds: 3
   concurrency: 128
 req:
   method: POST
