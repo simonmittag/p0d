@@ -22,7 +22,7 @@ func main() {
 	var mode Mode
 
 	C := flag.String("C", "", "load configuration from yml file")
-	O := flag.String("O", "", "save detailed JSON output to file")
+	O := flag.String("O", "", "save detailed output to json file")
 	c := flag.Int("c", 1, "maximum amount of concurrent TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	H := flag.String("H", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+

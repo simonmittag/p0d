@@ -401,7 +401,7 @@ func (p *P0d) closeLiveWritersAndSummarize() {
 	p.logSummary()
 
 	if len(p.Output) > 0 {
-		log("finalizing log file '%s'", Yellow(p.Output))
+		log("finalizing out file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, "", "  ")
 		p.outFileCheckWrite(je)
 		_, we := p.outFile.Write(j)
@@ -443,7 +443,7 @@ func (p *P0d) initLog() {
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		log("log sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		log("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
