@@ -31,7 +31,6 @@ const applicationJson = "application/json"
 const multipartFormdata = "multipart/form-data"
 const applicationXWWWFormUrlEncoded = "application/x-www-form-urlencoded"
 const AT = "@"
-const staggerThreadsMs = 25
 
 var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
@@ -39,6 +38,7 @@ var bodyTypes = []string{"POST", "PUT", "PATCH"}
 type P0d struct {
 	ID              string
 	PID             int
+	TimerPhase      TimerPhase
 	Config          Config
 	client          *http.Client
 	ReqStats        *ReqStats
@@ -55,6 +55,18 @@ type P0d struct {
 	stopThreads     []chan struct{}
 	OsMaxOpenFiles  int64
 }
+
+type TimerPhase uint
+
+const (
+	Bootstrap TimerPhase = iota
+	RampUp
+	Main
+	RampDown
+	Draining
+	Drained
+	Done
+)
 
 type ReqAtmpt struct {
 	Start    time.Time
@@ -99,9 +111,10 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
 
 	return &P0d{
-		ID:     createRunId(),
-		Config: cfg,
-		client: cfg.scaffoldHttpClient(),
+		ID:         createRunId(),
+		TimerPhase: Bootstrap,
+		Config:     cfg,
+		client:     cfg.scaffoldHttpClient(),
 		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
@@ -133,9 +146,10 @@ func NewP0dFromFile(f string, o string) *P0d {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
 
 	return &P0d{
-		ID:     createRunId(),
-		Config: *cfg,
-		client: cfg.scaffoldHttpClient(),
+		ID:         createRunId(),
+		TimerPhase: Bootstrap,
+		Config:     *cfg,
+		client:     cfg.scaffoldHttpClient(),
 		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
@@ -181,10 +195,12 @@ func (p *P0d) Race() {
 	const indent string = "  "
 	var comma = []byte(",\n")
 	const backspace = "\x1b[%dD"
+	const staggerThreadsMs = 5
 
-	winddown := func() {
+	drain := func() {
 		p.Stop = time.Now()
-		p.stopReqAtmpts()
+		p.TimerPhase = Draining
+		p.stopReqAtmptsThreads(staggerThreadsMs)
 		p.stopLiveWriterFastLoop()
 	Drain:
 		for i := 0; i < 100; i++ {
@@ -194,6 +210,7 @@ func (p *P0d) Race() {
 			time.Sleep(time.Millisecond * 100)
 			p.doLogLive()
 		}
+		p.TimerPhase = Drained
 		p.closeLiveWritersAndSummarize()
 	}
 Main:
@@ -203,28 +220,32 @@ Main:
 			//because CTRL+C is crazy and messes up our live log by two spaces
 			fmt.Fprintf(p.liveWriters[0], backspace, 2)
 			p.Interrupted = true
-			winddown()
+			drain()
 			break Main
 		case <-end:
-			winddown()
+			drain()
 			break Main
 		case ra := <-ras:
 			p.ReqStats.update(ra, time.Now(), p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
-
+	p.TimerPhase = Done
 	log(Cyan("done").String())
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
+	staggerThreadsMs := 25
+
 	//don't block because execution continues on to live updates
 	go func() {
+		p.TimerPhase = RampUp
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
-			time.Sleep(time.Millisecond * staggerThreadsMs)
+			time.Sleep(time.Millisecond * time.Duration(staggerThreadsMs))
 			go p.doReqAtmpts(ras, p.stopThreads[i])
 		}
+		p.TimerPhase = Main
 	}()
 }
 
@@ -345,14 +366,19 @@ ReqAtmpt:
 	}
 }
 
-func (p *P0d) stopReqAtmpts() {
+func (p *P0d) stopReqAtmptsThreads(staggerMs int) {
 	//again don't block because execution continues on with live udpates
 	go func() {
 		for i := 0; i < len(p.stopThreads); i++ {
-			//stagger the off ramp between threads so we can it live.
-			time.Sleep(time.Millisecond * staggerThreadsMs)
-			p.stopThreads[i] <- struct{}{}
-			close(p.stopThreads[i])
+			if p.stopThreads[i] != nil {
+				//stagger the off ramp between threads so we can watch it live.
+				time.Sleep(time.Millisecond * time.Duration(staggerMs))
+				p.stopThreads[i] <- struct{}{}
+				close(p.stopThreads[i])
+
+				//remove the reference to this channel once closed
+				p.stopThreads[i] = nil
+			}
 		}
 	}()
 }
