@@ -81,7 +81,8 @@ type ReqAtmpt struct {
 func initStopThreads(cfg Config) []chan struct{} {
 	var v = make([]chan struct{}, 0)
 	for i := 0; i < cfg.Exec.Concurrency; i++ {
-		v = append(v, make(chan struct{}))
+		//make sure this channel never blocks if drain runs after stop
+		v = append(v, make(chan struct{}, 2))
 	}
 	return v
 }
@@ -173,10 +174,16 @@ func (p *P0d) Race() {
 	_, p.OsMaxOpenFiles = getUlimit()
 	p.initLog()
 
-	//init timer for trigger end to totalruntime
-	end := make(chan struct{})
+	//init timer for rampdown trigger
+	rampdown := make(chan struct{})
+	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds-p.Config.Exec.RampSeconds)*time.Second, func() {
+		rampdown <- struct{}{}
+	})
+
+	//init timer for trigger end to totalruntime and start draining
+	drainer := make(chan struct{})
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds)*time.Second, func() {
-		end <- struct{}{}
+		drainer <- struct{}{}
 	})
 
 	defer func() {
@@ -195,14 +202,15 @@ func (p *P0d) Race() {
 	const indent string = "  "
 	var comma = []byte(",\n")
 	const backspace = "\x1b[%dD"
-	const staggerThreadsMs = 5
 
 	drain := func() {
 		p.Stop = time.Now()
 		p.TimerPhase = Draining
-		p.stopReqAtmptsThreads(staggerThreadsMs)
+		//we still want to watch draining but much faster.
+		p.stopReqAtmptsThreads(time.Millisecond * 1)
 		p.stopLiveWriterFastLoop()
 	Drain:
+		//TODO: this is max 10 seconds
 		for i := 0; i < 100; i++ {
 			if p.getOSStats().PidOpenConns == 0 {
 				break Drain
@@ -222,9 +230,12 @@ Main:
 			p.Interrupted = true
 			drain()
 			break Main
-		case <-end:
+		case <-drainer:
 			drain()
 			break Main
+		case <-rampdown:
+			p.TimerPhase = RampDown
+			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
 		case ra := <-ras:
 			p.ReqStats.update(ra, time.Now(), p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
@@ -235,20 +246,22 @@ Main:
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
-	staggerThreadsDuration := time.Duration(
-		float64(time.Second) * (float64(p.Config.Exec.RampSeconds) / float64(p.Config.Exec.Concurrency)),
-	)
-
 	//don't block because execution continues on to live updates
 	go func() {
 		p.TimerPhase = RampUp
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
-			time.Sleep(staggerThreadsDuration)
+			time.Sleep(p.staggerThreadsDuration())
 			go p.doReqAtmpts(ras, p.stopThreads[i])
 		}
 		p.TimerPhase = Main
 	}()
+}
+
+func (p *P0d) staggerThreadsDuration() time.Duration {
+	return time.Duration(
+		float64(time.Second) * (float64(p.Config.Exec.RampSeconds) / float64(p.Config.Exec.Concurrency)),
+	)
 }
 
 func (p *P0d) doReqAtmpts(ras chan<- ReqAtmpt, done <-chan struct{}) {
@@ -368,18 +381,16 @@ ReqAtmpt:
 	}
 }
 
-func (p *P0d) stopReqAtmptsThreads(staggerMs int) {
+func (p *P0d) stopReqAtmptsThreads(staggerThreadsDuration time.Duration) {
 	//again don't block because execution continues on with live udpates
 	go func() {
 		for i := 0; i < len(p.stopThreads); i++ {
 			if p.stopThreads[i] != nil {
 				//stagger the off ramp between threads so we can watch it live.
-				time.Sleep(time.Millisecond * time.Duration(staggerMs))
+				if staggerThreadsDuration > 0 {
+					time.Sleep(staggerThreadsDuration)
+				}
 				p.stopThreads[i] <- struct{}{}
-				close(p.stopThreads[i])
-
-				//remove the reference to this channel once closed
-				p.stopThreads[i] = nil
 			}
 		}
 	}()
@@ -486,15 +497,18 @@ func (p *P0d) doLogLive() {
 	i++
 	oss := p.getOSStats()
 	connMsg := "concurrent TCP conns: %s%s%s"
-	if p.Stop.Nanosecond() > 0 {
-		if oss.PidOpenConns > 0 {
-			connMsg += Cyan(" (draining) ").String()
-		} else {
-			connMsg += Cyan(" (drained)").String()
-		}
-	} else if oss.PidOpenConns < p.Config.Exec.Concurrency {
+	if p.TimerPhase == RampUp {
 		connMsg += Cyan(" (ramping up)").String()
+	} else if p.TimerPhase == Main {
+		//nothing here
+	} else if p.TimerPhase == RampDown {
+		connMsg += Cyan(" (ramping down)").String()
+	} else if p.TimerPhase == Draining {
+		connMsg += Cyan(" (draining) ").String()
+	} else if p.TimerPhase == Drained {
+		connMsg += Cyan(" (drained)").String()
 	}
+
 	fmt.Fprintf(lw[i], timefmt(connMsg),
 		Cyan(FGroup(int64(oss.PidOpenConns))),
 		Cyan("/"),
