@@ -40,7 +40,7 @@ type P0d struct {
 	PID             int
 	TimerPhase      TimerPhase
 	Config          Config
-	client          *http.Client
+	client          map[int]*http.Client
 	ReqStats        *ReqStats
 	OSStats         []OSStats
 	Start           time.Time
@@ -115,7 +115,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		ID:         createRunId(),
 		TimerPhase: Bootstrap,
 		Config:     cfg,
-		client:     cfg.scaffoldHttpClient(),
+		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
@@ -150,7 +150,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		ID:         createRunId(),
 		TimerPhase: Bootstrap,
 		Config:     *cfg,
-		client:     cfg.scaffoldHttpClient(),
+		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
 			Start:      start,
 			ErrorTypes: make(map[string]int),
@@ -252,7 +252,7 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
 			time.Sleep(p.staggerThreadsDuration())
-			go p.doReqAtmpts(ras, p.stopThreads[i])
+			go p.doReqAtmpts(i, ras, p.stopThreads[i])
 		}
 		p.TimerPhase = Main
 	}()
@@ -264,7 +264,7 @@ func (p *P0d) staggerThreadsDuration() time.Duration {
 	)
 }
 
-func (p *P0d) doReqAtmpts(ras chan<- ReqAtmpt, done <-chan struct{}) {
+func (p *P0d) doReqAtmpts(i int, ras chan<- ReqAtmpt, done <-chan struct{}) {
 ReqAtmpt:
 	for {
 		select {
@@ -347,7 +347,7 @@ ReqAtmpt:
 		_ = bq
 
 		//do the work and dump the response for size
-		res, e := p.client.Do(req)
+		res, e := p.client[i].Do(req)
 		if res != nil {
 			ra.ResCode = res.StatusCode
 			b, _ := httputil.DumpResponse(res, true)

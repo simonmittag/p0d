@@ -165,7 +165,7 @@ func TestPostConfigValidate(t *testing.T) {
 func TestScaffoldHTTPClient(t *testing.T) {
 	cfg := loadConfigFromFile("./examples/config_get.yml")
 
-	h := cfg.scaffoldHttpClient()
+	h := cfg.scaffoldHttpClient(cfg.Exec.Concurrency)
 	if h.Transport == nil {
 		t.Error("http client not configured")
 	}

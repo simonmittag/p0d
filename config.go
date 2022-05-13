@@ -227,9 +227,28 @@ func (cfg *Config) hasContentType(contentType string) bool {
 	return true
 }
 
+func (cfg Config) scaffoldHttpClients() map[int]*http.Client {
+	cs := make(map[int]*http.Client, cfg.Exec.Concurrency)
+
+	//to bypass connection re-use inside the pool for multiple parallel requests using streams in http/2
+	//we create multiple clients, limited to one connection, whereas for http/1.1 it is one large pool that is shared.
+	if cfg.Exec.HttpVersion == http20 {
+		for i := 0; i < cfg.Exec.Concurrency; i++ {
+			c := cfg.scaffoldHttpClient(1)
+			cs[i] = c
+		}
+	} else {
+		c := cfg.scaffoldHttpClient(cfg.Exec.Concurrency)
+		for i := 0; i < cfg.Exec.Concurrency; i++ {
+			cs[i] = c
+		}
+	}
+	return cs
+}
+
 const httpIdleTimeout = time.Duration(1) * time.Second
 
-func (cfg Config) scaffoldHttpClient() *http.Client {
+func (cfg Config) scaffoldHttpClient(max int) *http.Client {
 	tlsc := &tls.Config{
 		MinVersion:         tls.VersionTLS11,
 		MaxVersion:         tls.VersionTLS12,
@@ -245,9 +264,9 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		//TLS handshake timeout is the same as connection timeout
 		TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		TLSClientConfig:     tlsc,
-		MaxConnsPerHost:     cfg.Exec.Concurrency,
-		MaxIdleConns:        cfg.Exec.Concurrency,
-		MaxIdleConnsPerHost: cfg.Exec.Concurrency,
+		MaxConnsPerHost:     max,
+		MaxIdleConns:        max,
+		MaxIdleConnsPerHost: max,
 		IdleConnTimeout:     httpIdleTimeout,
 		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}

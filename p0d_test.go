@@ -94,7 +94,7 @@ func TestDoReqAtmpt(t *testing.T) {
 	ras := make(chan ReqAtmpt, 65535)
 	done := make(chan struct{})
 	//fire this off in goroutine
-	go p.doReqAtmpts(ras, done)
+	go p.doReqAtmpts(0, ras, done)
 
 	//then wait for signal from completed reqAtmpt.
 	ra := <-ras
