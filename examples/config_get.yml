@@ -2,7 +2,7 @@
 exec:
   mode: binary
   durationSeconds: 30
-  rampSeconds: 14
+  rampSeconds: 3
   concurrency: 128
   logsampling: 0.1
   httpVersion: 2
