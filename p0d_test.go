@@ -146,5 +146,95 @@ func TestRaceWithOutput(t *testing.T) {
 
 	//for good measure
 	os.Remove(p.Output)
+}
 
+func TestTimerPhase(t *testing.T) {
+	p := P0d{TimerPhase: Bootstrap}
+
+	p.setTimerPhase(Bootstrap)
+	if !p.isTimerPhase(Bootstrap) {
+		t.Error("should have bootstrap")
+	}
+
+	p.setTimerPhase(RampUp)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if !p.isTimerPhase(RampUp) {
+		t.Error("should have rampup")
+	}
+
+	p.setTimerPhase(RampDown)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if !p.isTimerPhase(RampDown) {
+		t.Error("should have rampdown")
+	}
+
+	p.setTimerPhase(Draining)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if !p.isTimerPhase(Draining) {
+		t.Error("should have draining")
+	}
+
+	p.setTimerPhase(Drained)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if p.isTimerPhase(Draining) {
+		t.Error("should NOT have draining")
+	}
+	if !p.isTimerPhase(Drained) {
+		t.Error("should have drained")
+	}
+
+	p.setTimerPhase(Done)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if p.isTimerPhase(Draining) {
+		t.Error("should NOT have draining")
+	}
+	if p.isTimerPhase(Drained) {
+		t.Error("should NOT have drained")
+	}
+	if !p.isTimerPhase(Done) {
+		t.Error("should have done")
+	}
+
+	p2 := P0d{TimerPhase: RampUp}
+	p2.setTimerPhase(Done)
+	if p2.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p2.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if !p2.isTimerPhase(Done) {
+		t.Error("should have done")
+	}
 }

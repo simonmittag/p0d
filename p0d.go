@@ -56,10 +56,10 @@ type P0d struct {
 	OsMaxOpenFiles  int64
 }
 
-type TimerPhase uint
+type TimerPhase int
 
 const (
-	Bootstrap TimerPhase = iota
+	Bootstrap TimerPhase = 1 << iota
 	RampUp
 	Main
 	RampDown
@@ -205,7 +205,7 @@ func (p *P0d) Race() {
 
 	drain := func() {
 		p.Stop = time.Now()
-		p.TimerPhase = Draining
+		p.setTimerPhase(Draining)
 		//we still want to watch draining but much faster.
 		p.stopReqAtmptsThreads(time.Millisecond * 1)
 		p.stopLiveWriterFastLoop()
@@ -218,7 +218,7 @@ func (p *P0d) Race() {
 			time.Sleep(time.Millisecond * 100)
 			p.doLogLive()
 		}
-		p.TimerPhase = Drained
+		p.setTimerPhase(Drained)
 		p.closeLiveWritersAndSummarize()
 	}
 Main:
@@ -234,27 +234,28 @@ Main:
 			drain()
 			break Main
 		case <-rampdown:
-			p.TimerPhase = RampDown
+			p.setTimerPhase(RampDown)
 			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
 		case ra := <-ras:
 			p.ReqStats.update(ra, time.Now(), p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
-	p.TimerPhase = Done
+	p.setTimerPhase(Done)
 	log(Cyan("done").String())
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 	//don't block because execution continues on to live updates
 	go func() {
-		p.TimerPhase = RampUp
+		p.setTimerPhase(RampUp)
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
 			time.Sleep(p.staggerThreadsDuration())
 			go p.doReqAtmpts(i, ras, p.stopThreads[i])
 		}
-		p.TimerPhase = Main
+		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
+		p.setTimerPhase(Main)
 	}()
 }
 
@@ -497,15 +498,15 @@ func (p *P0d) doLogLive() {
 	i++
 	oss := p.getOSStats()
 	connMsg := "concurrent TCP conns: %s%s%s"
-	if p.TimerPhase == RampUp {
+	if p.isTimerPhase(RampUp) {
 		connMsg += Cyan(" (ramping up)").String()
-	} else if p.TimerPhase == Main {
+	} else if p.isTimerPhase(Main) {
 		//nothing here
-	} else if p.TimerPhase == RampDown {
+	} else if p.isTimerPhase(RampDown) {
 		connMsg += Cyan(" (ramping down)").String()
-	} else if p.TimerPhase == Draining {
+	} else if p.isTimerPhase(Draining) {
 		connMsg += Cyan(" (draining) ").String()
-	} else if p.TimerPhase == Drained {
+	} else if p.isTimerPhase(Drained) {
 		connMsg += Cyan(" (drained)").String()
 	}
 
@@ -643,6 +644,17 @@ func (p *P0d) getOSStats() OSStats {
 	} else {
 		return p.OSStats[len(p.OSStats)-1]
 	}
+}
+
+func (p *P0d) setTimerPhase(phase TimerPhase) {
+	if phase > p.TimerPhase {
+		p.TimerPhase = phase
+	}
+	p.TimerPhase = p.TimerPhase & phase
+}
+
+func (p *P0d) isTimerPhase(phase TimerPhase) bool {
+	return p.TimerPhase == phase
 }
 
 func createRunId() string {
