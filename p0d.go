@@ -650,7 +650,6 @@ func (p *P0d) setTimerPhase(phase TimerPhase) {
 	if phase > p.TimerPhase {
 		p.TimerPhase = phase
 	}
-	p.TimerPhase = p.TimerPhase & phase
 }
 
 func (p *P0d) isTimerPhase(phase TimerPhase) bool {
