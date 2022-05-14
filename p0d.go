@@ -255,7 +255,14 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 			go p.doReqAtmpts(i, ras, p.stopThreads[i])
 		}
 		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
-		p.setTimerPhase(Main)
+	MainUpdate:
+		for {
+			if p.getOSStats().PidOpenConns >= p.Config.Exec.Concurrency {
+				p.setTimerPhase(Main)
+				break MainUpdate
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
 	}()
 }
 
