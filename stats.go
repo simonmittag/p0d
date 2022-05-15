@@ -1,8 +1,10 @@
 package p0d
 
 import (
+	"fmt"
 	"github.com/simonmittag/procspy"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -75,6 +77,8 @@ func NewOSStats(pid int) *OSStats {
 	}
 }
 
+var cm = sync.Mutex{}
+
 func (oss *OSStats) updateOpenConns(cfg Config) {
 	//TODO: this produces a 0 when it shouldn't. after signalling CTRL+C this often returns intermittent 0
 	cs, e := procspy.Connections(true)
@@ -82,13 +86,19 @@ func (oss *OSStats) updateOpenConns(cfg Config) {
 		_ = e
 	} else {
 		d := 0
+		cm.Lock()
 		for c := cs.Next(); c != nil; c = cs.Next() {
 			// fixes bug where pid connections to other network infra are reported as false positive, see:
 			// https://github.com/simonmittag/p0d/issues/31
+
+			fmt.Print("\n---start conns---: \n")
 			if c.PID == uint(oss.Pid) && c.RemotePort == cfg.getRemotePort() {
 				d++
+				fmt.Printf("\n\nconn: %v\n\n", c)
 			}
+			fmt.Print("\n---stop conns---: \n")
 		}
+		cm.Unlock()
 		oss.PidOpenConns = d
 	}
 }
