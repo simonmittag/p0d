@@ -11,7 +11,9 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -129,11 +131,42 @@ func (cfg *Config) validate() *Config {
 
 	if cfg.Req.Url == "" {
 		cfg.panic("request url not specified")
+	} else {
+		u, e := url.Parse(cfg.Req.Url)
+		if e != nil {
+			cfg.panic(e.Error())
+		}
+		_, p, _ := net.SplitHostPort(u.Host)
+		if len(p) > 0 {
+			p1, e2 := strconv.Atoi(p)
+			if e2 != nil {
+				cfg.panic(e.Error())
+			}
+			if p1 < 0 || p1 > 65535 {
+				cfg.panic(fmt.Sprintf("valid port range is [0-65535], yours: %d", p1))
+			}
+		}
 	}
+
 	if cfg.Res.Code == 0 {
 		cfg.Res.Code = 200
 	}
 	return cfg
+}
+
+func (cfg *Config) getRemotePort() uint16 {
+	u, _ := url.Parse(cfg.Req.Url)
+	_, p, _ := net.SplitHostPort(u.Host)
+	if p == N {
+		if u.Scheme == "http" {
+			p = "80"
+		}
+		if u.Scheme == "https" {
+			p = "443"
+		}
+	}
+	p1, _ := strconv.Atoi(p)
+	return uint16(p1)
 }
 
 func (cfg *Config) validateReqBody() {

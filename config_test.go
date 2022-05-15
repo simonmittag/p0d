@@ -4,6 +4,33 @@ import (
 	"testing"
 )
 
+func TestGetRemotePort(t *testing.T) {
+	cfg := Config{
+		Req: Req{
+			Url: "http://localhost:8080/blah",
+		},
+	}
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 8080 {
+		t.Error("invalid remote port")
+	}
+
+	cfg.Req.Url = "http://localhost/blah"
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 80 {
+		t.Error("invalid remote port")
+	}
+
+	cfg.Req.Url = "https://localhost/blah"
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 443 {
+		t.Error("invalid remote port")
+	}
+}
+
 func TestEmptyConfigValidate(t *testing.T) {
 	cfg := Config{
 		Req: Req{
@@ -11,6 +38,7 @@ func TestEmptyConfigValidate(t *testing.T) {
 		},
 	}
 	got := cfg.validate()
+
 	if got.Res.Code != 200 {
 		t.Error("invalid default res code")
 	}

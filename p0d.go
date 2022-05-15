@@ -638,7 +638,7 @@ func (p *P0d) initOSStats() {
 
 func (p *P0d) doOSSStats() {
 	oss := NewOSStats(p.PID)
-	oss.updateOpenConns()
+	oss.updateOpenConns(p.Config)
 	p.OSStats = append(p.OSStats, *oss)
 }
 
