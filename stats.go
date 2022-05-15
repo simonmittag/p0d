@@ -87,17 +87,17 @@ func (oss *OSStats) updateOpenConns(cfg Config) {
 	} else {
 		d := 0
 		cm.Lock()
+		fmt.Print("\n---start conns---:")
 		for c := cs.Next(); c != nil; c = cs.Next() {
 			// fixes bug where pid connections to other network infra are reported as false positive, see:
 			// https://github.com/simonmittag/p0d/issues/31
 
-			fmt.Print("\n---start conns---: \n")
 			if c.PID == uint(oss.Pid) && c.RemotePort == cfg.getRemotePort() {
 				d++
-				fmt.Printf("\n\nconn: %v\n\n", c)
+				fmt.Printf("\nconn: %v", c)
 			}
-			fmt.Print("\n---stop conns---: \n")
 		}
+		fmt.Print("\n---stop conns---:")
 		cm.Unlock()
 		oss.PidOpenConns = d
 	}
