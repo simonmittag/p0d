@@ -632,7 +632,7 @@ func (p *P0d) initOSStats() {
 	go func() {
 		for {
 			p.doOSSStats()
-			time.Sleep(time.Millisecond * 250)
+			time.Sleep(time.Millisecond * 1000)
 		}
 	}()
 }
