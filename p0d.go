@@ -19,6 +19,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -636,10 +637,14 @@ func (p *P0d) initOSStats() {
 	}()
 }
 
+var osMutex = sync.Mutex{}
+
 func (p *P0d) doOSSStats() {
+	osMutex.Lock()
 	oss := NewOSStats(p.PID)
 	oss.updateOpenConns(p.Config)
 	p.OSStats = append(p.OSStats, *oss)
+	osMutex.Unlock()
 }
 
 func (p *P0d) getOSStats() OSStats {
