@@ -263,18 +263,12 @@ func (cfg *Config) hasContentType(contentType string) bool {
 func (cfg Config) scaffoldHttpClients() map[int]*http.Client {
 	cs := make(map[int]*http.Client, cfg.Exec.Concurrency)
 
-	//to bypass connection re-use inside the pool for multiple parallel requests using streams in http/2
-	//we create multiple clients, limited to one connection, whereas for http/1.1 it is one large pool that is shared.
-	if cfg.Exec.HttpVersion == http20 {
-		for i := 0; i < cfg.Exec.Concurrency; i++ {
-			c := cfg.scaffoldHttpClient(1)
-			cs[i] = c
-		}
-	} else {
-		c := cfg.scaffoldHttpClient(cfg.Exec.Concurrency)
-		for i := 0; i < cfg.Exec.Concurrency; i++ {
-			cs[i] = c
-		}
+	//we want to bypass connection re-use inside the pool for multiple parallel requests using streams in http/2
+	//but also to get a clean 1x conn == 1x goroutine mapping for http/1.1 during execution, so we create multiple
+	//clients limited to one connection. each goroutine can recover if a connection dies.
+	for i := 0; i < cfg.Exec.Concurrency; i++ {
+		c := cfg.scaffoldHttpClient(1)
+		cs[i] = c
 	}
 	return cs
 }

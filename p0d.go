@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.2.7"
+const Version string = "v0.2.8"
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"
@@ -274,6 +274,8 @@ func (p *P0d) staggerThreadsDuration() time.Duration {
 }
 
 func (p *P0d) doReqAtmpts(i int, ras chan<- ReqAtmpt, done <-chan struct{}) {
+	p.client[i].CloseIdleConnections()
+
 ReqAtmpt:
 	for {
 		select {
