@@ -570,9 +570,8 @@ func (p *P0d) doLogLive() {
 	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
 
 	i++
-	tte := fmt.Sprintf("%s/%s (%s%%)",
+	tte := fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumErrors)),
-		FGroup(int64(p.ReqStats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.ReqStats.PctErrors*100))/100))
 	if p.ReqStats.SumErrors > 0 {
 		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Red(tte))
