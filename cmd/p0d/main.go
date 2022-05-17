@@ -22,9 +22,8 @@ func main() {
 	var mode Mode
 
 	C := flag.String("C", "", "load configuration from yml file")
-	O := flag.String("O", "", "save detailed JSON output to file")
-	t := flag.Int("t", 1, "amount of parallel threads")
-	c := flag.Int("c", 1, "maximum amount of parallel TCP connections used")
+	O := flag.String("O", "", "save detailed output to json file")
+	c := flag.Int("c", 1, "maximum amount of concurrent TCP connections used")
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	H := flag.String("H", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+
 		"TLS URLs). Defaults to 1.1")
@@ -48,7 +47,7 @@ func main() {
 	var pod *p0d.P0d
 	switch mode {
 	case Cli:
-		pod = p0d.NewP0dWithValues(*t, *c, *d, u, *H, *O)
+		pod = p0d.NewP0dWithValues(*c, *d, u, *H, *O)
 		pod.Race()
 	case File:
 		pod = p0d.NewP0dFromFile(*C, *O)

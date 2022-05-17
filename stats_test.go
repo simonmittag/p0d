@@ -106,13 +106,13 @@ func TestUpdateStats(t *testing.T) {
 }
 
 func TestUpdateOSStats(t *testing.T) {
-	oss := NewOSStats()
-	oss.updateOpenConns()
+	oss := NewOSStats(1)
+	oss.updateOpenConns(Config{Exec: Exec{Concurrency: 3}})
 }
 
 func BenchmarkUpdateOpenConns(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		oss := NewOSStats()
-		oss.updateOpenConns()
+		oss := NewOSStats(1)
+		oss.updateOpenConns(Config{})
 	}
 }

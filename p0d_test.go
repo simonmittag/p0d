@@ -13,17 +13,14 @@ func TestNewP0dFromFile(t *testing.T) {
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
-	if p.Config.Exec.Connections != 128 {
-		t.Error("incorrect connections")
+	if p.Config.Exec.Concurrency != 128 {
+		t.Error("incorrect concurrency")
 	}
 	if p.Config.Exec.DurationSeconds != 30 {
 		t.Error("incorrect duration seconds")
 	}
 	if p.Config.Exec.DialTimeoutSeconds != 3 {
 		t.Error("incorrect dialtimeout seconds")
-	}
-	if p.Config.Exec.Threads != 128 {
-		t.Error("incorrect threads")
 	}
 	if p.Config.Req.Method != "GET" {
 		t.Error("incorrect method")
@@ -40,22 +37,19 @@ func TestNewP0dFromFile(t *testing.T) {
 }
 
 func TestNewP0dWithValues(t *testing.T) {
-	p := NewP0dWithValues(8, 7, 6, "http://localhost/", "1.1", "")
+	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "")
 
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
 	}
-	if p.Config.Exec.Connections != 7 {
-		t.Error("incorrect connections")
+	if p.Config.Exec.Concurrency != 7 {
+		t.Error("incorrect concurrency")
 	}
 	if p.Config.Exec.DurationSeconds != 6 {
 		t.Error("incorrect duration seconds")
 	}
 	if p.Config.Exec.DialTimeoutSeconds != 3 {
 		t.Error("incorrect dialtimeout seconds")
-	}
-	if p.Config.Exec.Threads != 8 {
-		t.Error("incorrect threads")
 	}
 	if p.Config.Exec.HttpVersion != 1.1 {
 		t.Error("incorrect http version")
@@ -77,7 +71,7 @@ func TestNewP0dWithValues(t *testing.T) {
 
 func TestLogBootstrap(t *testing.T) {
 	p := NewP0dFromFile("./examples/config_get.yml", "")
-	p.logBootstrap()
+	p.initLog()
 }
 
 func TestLogSummary(t *testing.T) {
@@ -96,14 +90,19 @@ func TestDoReqAtmpt(t *testing.T) {
 	//we hack the config's URL to point at our mock server so we can execute the test
 	p.Config.Req.Url = svr.URL
 
-	//blocking channel but we don't want to run crazy inside doReqAtmtp, need only 1 response
-	ras := make(chan ReqAtmpt)
-
+	//nonblocking channel we now use done to signal
+	ras := make(chan ReqAtmpt, 65535)
+	done := make(chan struct{})
 	//fire this off in goroutine
-	go p.doReqAtmpt(ras)
+	go p.doReqAtmpts(0, ras, done)
 
 	//then wait for signal from completed reqAtmpt.
 	ra := <-ras
+
+	//we tell ReqAtmpt to shut down.
+	done <- struct{}{}
+	close(done)
+
 	if ra.ResCode != 200 {
 		t.Error("should have returned response code 200")
 	}
@@ -131,7 +130,7 @@ func TestRace(t *testing.T) {
 }
 
 func TestRaceWithOutput(t *testing.T) {
-	p := NewP0dFromFile("./examples/config_get.yml", "")
+	p := NewP0dFromFile("./examples/config_get.yml", "testoutput.json")
 
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "123456789")
@@ -143,11 +142,99 @@ func TestRaceWithOutput(t *testing.T) {
 
 	//test this only shortly
 	p.Config.Exec.DurationSeconds = 1
-	p.Output = "testoutput.json"
-	p.Config.Exec.DurationSeconds = 3
 	p.Race()
 
 	//for good measure
 	os.Remove(p.Output)
+}
 
+func TestTimerPhase(t *testing.T) {
+	p := P0d{TimerPhase: Bootstrap}
+
+	p.setTimerPhase(Bootstrap)
+	if !p.isTimerPhase(Bootstrap) {
+		t.Error("should have bootstrap")
+	}
+
+	p.setTimerPhase(RampUp)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if !p.isTimerPhase(RampUp) {
+		t.Error("should have rampup")
+	}
+
+	p.setTimerPhase(RampDown)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if !p.isTimerPhase(RampDown) {
+		t.Error("should have rampdown")
+	}
+
+	p.setTimerPhase(Draining)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if !p.isTimerPhase(Draining) {
+		t.Error("should have draining")
+	}
+
+	p.setTimerPhase(Drained)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if p.isTimerPhase(Draining) {
+		t.Error("should NOT have draining")
+	}
+	if !p.isTimerPhase(Drained) {
+		t.Error("should have drained")
+	}
+
+	p.setTimerPhase(Done)
+	if p.isTimerPhase(Bootstrap) {
+		t.Error("should NOT have bootstrap")
+	}
+	if p.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if p.isTimerPhase(Draining) {
+		t.Error("should NOT have draining")
+	}
+	if p.isTimerPhase(Drained) {
+		t.Error("should NOT have drained")
+	}
+	if !p.isTimerPhase(Done) {
+		t.Error("should have done")
+	}
+
+	p2 := P0d{TimerPhase: RampUp}
+	p2.setTimerPhase(Done)
+	if p2.isTimerPhase(RampUp) {
+		t.Error("should NOT have rampup")
+	}
+	if p2.isTimerPhase(RampDown) {
+		t.Error("should NOT have rampdown")
+	}
+	if !p2.isTimerPhase(Done) {
+		t.Error("should have done")
+	}
 }

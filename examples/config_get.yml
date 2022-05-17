@@ -2,8 +2,8 @@
 exec:
   mode: binary
   durationSeconds: 30
-  threads: 128
-  connections: 128
+  rampSeconds: 3
+  concurrency: 128
   logsampling: 0.1
   httpVersion: 2
 req:

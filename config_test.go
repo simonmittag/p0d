@@ -4,6 +4,33 @@ import (
 	"testing"
 )
 
+func TestGetRemotePort(t *testing.T) {
+	cfg := Config{
+		Req: Req{
+			Url: "http://localhost:8080/blah",
+		},
+	}
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 8080 {
+		t.Error("invalid remote port")
+	}
+
+	cfg.Req.Url = "http://localhost/blah"
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 80 {
+		t.Error("invalid remote port")
+	}
+
+	cfg.Req.Url = "https://localhost/blah"
+	_ = cfg.validate()
+
+	if cfg.getRemotePort() != 443 {
+		t.Error("invalid remote port")
+	}
+}
+
 func TestEmptyConfigValidate(t *testing.T) {
 	cfg := Config{
 		Req: Req{
@@ -11,6 +38,7 @@ func TestEmptyConfigValidate(t *testing.T) {
 		},
 	}
 	got := cfg.validate()
+
 	if got.Res.Code != 200 {
 		t.Error("invalid default res code")
 	}
@@ -32,21 +60,63 @@ func TestEmptyConfigValidate(t *testing.T) {
 	if got.Exec.DurationSeconds != 10 {
 		t.Error("invalid default duration seconds")
 	}
+	if got.Exec.RampSeconds != 1 {
+		t.Error("invalid default ramp seconds")
+	}
 	if got.Exec.LogSampling != 1 {
 		t.Error("invalid default logsampling")
 	}
 	if got.Exec.SpacingMillis != 0 {
 		t.Error("invalid default spacing millis")
 	}
-	if got.Exec.Threads != 1 {
+	if got.Exec.Concurrency != 1 {
 		t.Error("invalid default threads")
 	}
-	if got.Exec.Connections != 1 {
-		t.Error("invalid default connections")
+}
+
+func TestValidRamptime(t *testing.T) {
+	cfg := Config{
+		Req: Req{
+			Url: "http://localhost:8080/blah",
+		},
 	}
-	if got.Exec.Connections != 1 {
-		t.Error("invalid default connections")
+	tDr := func(d int, r int, w int) {
+		cfg.Exec.DurationSeconds = d
+		cfg.Exec.RampSeconds = r
+		cfg.validate()
+		got := cfg.Exec.RampSeconds
+		if w != got {
+			t.Errorf("invalid ramp time got %v want %v", got, w)
+		}
 	}
+
+	tDr(60, 30, 30)
+	tDr(30, 15, 15)
+	tDr(30, 0, 3)
+	tDr(10, 0, 1)
+	tDr(9, 0, 1)
+	tDr(8, 0, 1)
+	tDr(7, 0, 1)
+	tDr(6, 0, 1)
+	tDr(5, 0, 1)
+	tDr(4, 0, 1)
+	tDr(3, 0, 1)
+	tDr(10, 3, 3)
+	tDr(9, 3, 3)
+	tDr(8, 3, 3)
+	tDr(7, 3, 3)
+	tDr(6, 3, 3)
+	tDr(5, 2, 2)
+	tDr(4, 2, 2)
+	tDr(3, 1, 1)
+	tDr(10, 1, 1)
+	tDr(9, 1, 1)
+	tDr(8, 1, 1)
+	tDr(7, 1, 1)
+	tDr(6, 1, 1)
+	tDr(5, 1, 1)
+	tDr(4, 1, 1)
+	tDr(3, 1, 1)
 }
 
 func TestLoadConfigFromFile(t *testing.T) {
@@ -123,7 +193,7 @@ func TestPostConfigValidate(t *testing.T) {
 func TestScaffoldHTTPClient(t *testing.T) {
 	cfg := loadConfigFromFile("./examples/config_get.yml")
 
-	h := cfg.scaffoldHttpClient()
+	h := cfg.scaffoldHttpClient(cfg.Exec.Concurrency)
 	if h.Transport == nil {
 		t.Error("http client not configured")
 	}

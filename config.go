@@ -8,9 +8,12 @@ import (
 	. "github.com/logrusorgru/aurora"
 	"golang.org/x/net/http2"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -39,8 +42,8 @@ type Res struct {
 type Exec struct {
 	Mode               string
 	DurationSeconds    int
-	Threads            int
-	Connections        int
+	RampSeconds        int
+	Concurrency        int
 	DialTimeoutSeconds int64
 	LogSampling        float32
 	SpacingMillis      int64
@@ -83,14 +86,23 @@ func (cfg *Config) validate() *Config {
 		cfg.Req.Method = "GET"
 	}
 
-	if cfg.Exec.Threads == 0 {
-		cfg.Exec.Threads = 1
-	}
-	if cfg.Exec.Connections == 0 {
-		cfg.Exec.Connections = 1
+	if cfg.Exec.Concurrency == 0 {
+		cfg.Exec.Concurrency = 1
 	}
 	if cfg.Exec.DurationSeconds == 0 {
 		cfg.Exec.DurationSeconds = 10
+	} else {
+		if cfg.Exec.DurationSeconds < 3 {
+			cfg.panic("duration cannot be less than 3 seconds")
+		}
+	}
+
+	if cfg.Exec.RampSeconds == 0 {
+		cfg.Exec.RampSeconds = int(math.Ceil(float64(cfg.Exec.DurationSeconds) / 10))
+	} else {
+		if float64(cfg.Exec.RampSeconds) > (float64(cfg.Exec.DurationSeconds) / 2) {
+			cfg.panic("ramp time cannot be longer than half the duration")
+		}
 	}
 	if cfg.Exec.DialTimeoutSeconds == 0 {
 		cfg.Exec.DialTimeoutSeconds = 3
@@ -119,11 +131,42 @@ func (cfg *Config) validate() *Config {
 
 	if cfg.Req.Url == "" {
 		cfg.panic("request url not specified")
+	} else {
+		u, e := url.Parse(cfg.Req.Url)
+		if e != nil {
+			cfg.panic(e.Error())
+		}
+		_, p, _ := net.SplitHostPort(u.Host)
+		if len(p) > 0 {
+			p1, e2 := strconv.Atoi(p)
+			if e2 != nil {
+				cfg.panic(e.Error())
+			}
+			if p1 < 0 || p1 > 65535 {
+				cfg.panic(fmt.Sprintf("valid port range is [0-65535], yours: %d", p1))
+			}
+		}
 	}
+
 	if cfg.Res.Code == 0 {
 		cfg.Res.Code = 200
 	}
 	return cfg
+}
+
+func (cfg *Config) getRemotePort() uint16 {
+	u, _ := url.Parse(cfg.Req.Url)
+	_, p, _ := net.SplitHostPort(u.Host)
+	if p == N {
+		if u.Scheme == "http" {
+			p = "80"
+		}
+		if u.Scheme == "https" {
+			p = "443"
+		}
+	}
+	p1, _ := strconv.Atoi(p)
+	return uint16(p1)
 }
 
 func (cfg *Config) validateReqBody() {
@@ -217,7 +260,22 @@ func (cfg *Config) hasContentType(contentType string) bool {
 	return true
 }
 
-func (cfg Config) scaffoldHttpClient() *http.Client {
+func (cfg Config) scaffoldHttpClients() map[int]*http.Client {
+	cs := make(map[int]*http.Client, cfg.Exec.Concurrency)
+
+	//we want to bypass connection re-use inside the pool for multiple parallel requests using streams in http/2
+	//but also to get a clean 1x conn == 1x goroutine mapping for http/1.1 during execution, so we create multiple
+	//clients limited to one connection. each goroutine can recover if a connection dies.
+	for i := 0; i < cfg.Exec.Concurrency; i++ {
+		c := cfg.scaffoldHttpClient(1)
+		cs[i] = c
+	}
+	return cs
+}
+
+const httpIdleTimeout = time.Duration(1) * time.Second
+
+func (cfg Config) scaffoldHttpClient(max int) *http.Client {
 	tlsc := &tls.Config{
 		MinVersion:         tls.VersionTLS11,
 		MaxVersion:         tls.VersionTLS12,
@@ -233,15 +291,15 @@ func (cfg Config) scaffoldHttpClient() *http.Client {
 		//TLS handshake timeout is the same as connection timeout
 		TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		TLSClientConfig:     tlsc,
-		MaxConnsPerHost:     cfg.Exec.Connections,
-		MaxIdleConns:        cfg.Exec.Connections,
-		MaxIdleConnsPerHost: cfg.Exec.Connections,
-		IdleConnTimeout:     time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+		MaxConnsPerHost:     max,
+		MaxIdleConns:        max,
+		MaxIdleConnsPerHost: max,
+		IdleConnTimeout:     httpIdleTimeout,
 		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 
 	//see https://stackoverflow.com/questions/57683132/turning-off-connection-pool-for-go-http-client
-	if cfg.Exec.Connections == UNLIMITED {
+	if cfg.Exec.Concurrency == UNLIMITED {
 		t.DisableKeepAlives = true
 		logv(Yellow("transport connection pool disabled for http/1.1"))
 	}

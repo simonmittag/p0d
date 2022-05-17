@@ -3,7 +3,6 @@ package p0d
 import (
 	"github.com/simonmittag/procspy"
 	"math"
-	"os"
 	"time"
 )
 
@@ -12,10 +11,13 @@ type ReqStats struct {
 	Elpsd                    time.Duration
 	ReqAtmpts                int
 	ReqAtmptsPSec            int
+	MaxReqAtmptsPSec         int
 	SumBytesRead             int64
 	MeanBytesReadSec         int
+	MaxBytesReadSec          int
 	SumBytesWritten          int64
 	MeanBytesWrittenSec      int
+	MaxBytesWrittenSec       int
 	SumElpsdAtmptLatencyNs   time.Duration
 	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
@@ -29,12 +31,21 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.Elpsd = now.Sub(s.Start)
 	s.ReqAtmptsPSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
+	if s.ReqAtmptsPSec > s.MaxReqAtmptsPSec {
+		s.MaxReqAtmptsPSec = s.ReqAtmptsPSec
+	}
 
 	s.SumBytesRead += atmpt.ResBytes
 	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
+	if s.MeanBytesReadSec > s.MaxBytesReadSec {
+		s.MaxBytesReadSec = s.MeanBytesReadSec
+	}
 
 	s.SumBytesWritten += atmpt.ReqBytes
 	s.MeanBytesWrittenSec = int(math.Floor(float64(s.SumBytesWritten) / s.Elpsd.Seconds()))
+	if s.MeanBytesWrittenSec > s.MaxBytesWrittenSec {
+		s.MaxBytesWrittenSec = s.MeanBytesWrittenSec
+	}
 	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
 
@@ -56,26 +67,28 @@ type OSStats struct {
 	PidOpenConns int
 }
 
-func NewOSStats() *OSStats {
+func NewOSStats(pid int) *OSStats {
 	return &OSStats{
-		Pid:          os.Getpid(),
+		Pid:          pid,
 		Now:          time.Now(),
 		PidOpenConns: 0,
 	}
 }
 
-func (oss *OSStats) updateOpenConns() {
+func (oss *OSStats) updateOpenConns(cfg Config) {
+	//TODO: this produces a 0 when it shouldn't. after signalling CTRL+C this often returns intermittent 0
 	cs, e := procspy.Connections(true)
 	if e != nil {
 		_ = e
-	}
-	d := 0
-	a := 0
-	for c := cs.Next(); c != nil; c = cs.Next() {
-		a++
-		if c.PID == uint(oss.Pid) {
-			d++
+	} else {
+		d := 0
+		for c := cs.Next(); c != nil; c = cs.Next() {
+			// fixes bug where pid connections to other network infra are reported as false positive, see:
+			// https://github.com/simonmittag/p0d/issues/31
+			if c.PID == uint(oss.Pid) && c.RemotePort == cfg.getRemotePort() {
+				d++
+			}
 		}
+		oss.PidOpenConns = d
 	}
-	oss.PidOpenConns = d
 }

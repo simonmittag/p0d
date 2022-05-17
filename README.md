@@ -25,9 +25,9 @@ go install github.com/simonmittag/p0d/cmd/p0d@latest && p0d -h
 
 ## Usage Samples
 
-Run for 30 seconds with 10 parallel connections/threads against local server
+Run for 30 seconds with 10 concurrent connections against local server
 ```
-λ p0d -d 30 -t 10 -c 10 http://localhost:8080/path
+λ p0d -d 30 -c 10 http://localhost:8080/path
 ```
 
 Run in http/2 mode against local server and save output to `log.json`
@@ -55,13 +55,13 @@ Run with config file
   -O string
         save detailed JSON output to file
   -c int
-        maximum amount of parallel TCP connections used (default 1)
+        maximum amount of concurrent TCP connections used (default 1)
   -d int
         time in seconds to run p0d (default 10)
-  -h    print usage instructions
-  -t int
-        amount of parallel execution threads (default 1)
-  -v    print version
+  -h    
+        print usage instructions
+  -v    
+        print version
 ```
 
 ### Config file reference
@@ -71,8 +71,7 @@ Run with config file
 exec:
   mode: binary
   durationSeconds: 10
-  threads: 1
-  connections: 1
+  concurrency: 1
   logsampling: 1
 req:
   method: POST
@@ -95,13 +94,9 @@ run pod for `n` seconds. Defaults to `10`
 #### exec.dialTimeoutSeconds
 give up connecting to upstream resource after `n` seconds. Defaults to `3`
 
-#### exec.threads
-use `n` threads to make parallel calls to the server. Defaults to `1`
-
-#### exec.connections
-use a pool of maximum `n` connections. Defaults to `1`. Make sure your OS supports sufficient open file descriptors
-before settings this to a very high value. Set this to a similar size as `exec.threads` to avoid large amounts of
-threads competing for few connection resources.
+#### exec.concurrency
+use a pool of maximum `n` concurrent TCP connections. Defaults to `1`. Make sure your OS supports
+sufficient open file descriptors before settings this to a very high value. 
 
 #### exec.spacingMillis
 artificial spacing in milliseconds, introduced before sending each request. Defaults to `0`
