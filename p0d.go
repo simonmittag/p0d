@@ -563,9 +563,8 @@ func (p *P0d) doLogLive() {
 		Magenta("/s"))
 
 	i++
-	mrc := Cyan(fmt.Sprintf("%s/%s (%s%%)",
+	mrc := Cyan(fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumMatchingResponseCodes)),
-		FGroup(int64(p.ReqStats.ReqAtmpts)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.ReqStats.PctMatchingResponseCodes*100))/100)))
 	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
 
