@@ -128,8 +128,9 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		interrupt:      sigs,
 		Interrupted:    false,
 		bar: &ProgressBar{
-			maxSecs: d,
-			size:    20,
+			maxSecs:    d,
+			size:       20,
+			chunkProps: make([]ChunkProps, 20),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(cfg),
@@ -163,8 +164,9 @@ func NewP0dFromFile(f string, o string) *P0d {
 		interrupt:      sigs,
 		Interrupted:    false,
 		bar: &ProgressBar{
-			maxSecs: cfg.Exec.DurationSeconds,
-			size:    20,
+			maxSecs:    cfg.Exec.DurationSeconds,
+			size:       20,
+			chunkProps: make([]ChunkProps, 20),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(*cfg),

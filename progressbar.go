@@ -10,9 +10,16 @@ import (
 )
 
 type ProgressBar struct {
-	curSecs int
-	maxSecs int
-	size    int
+	curSecs    int
+	maxSecs    int
+	size       int
+	chunkProps []ChunkProps
+}
+
+type ChunkProps struct {
+	index     int
+	isRamp    bool
+	hasErrors bool
 }
 
 const EMPTY = " "
@@ -22,6 +29,22 @@ const OPEN = "["
 const CLOSE = "]"
 const rt = "runtime: "
 const trt = "total runtime: %v"
+
+func (p *ProgressBar) markRamp(chunkTime time.Time, pod *P0d) {
+	i := p.chunkPropIndexFor(chunkTime, pod)
+	p.chunkProps[i].isRamp = p.chunkProps[i].isRamp || true
+}
+
+func (p *ProgressBar) markError(chunkTime time.Time, pod *P0d) {
+	i := p.chunkPropIndexFor(chunkTime, pod)
+	p.chunkProps[i].hasErrors = p.chunkProps[i].hasErrors || true
+}
+
+func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
+	chunkSizeSeconds := float64(pod.Stop.Sub(pod.Start).Seconds()) / float64(p.size)
+	elapsed := chunkTime.Sub(pod.Start).Seconds()
+	return int(math.Floor(elapsed / chunkSizeSeconds))
+}
 
 func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 	if pod.Stop.IsZero() {
