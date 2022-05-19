@@ -91,7 +91,7 @@ func PrintLogo() (int, error) {
 			Cyan("\n        ╠╠╠╙   ╠╠╠╙").String()+Red("   ╠╬ε └╠ε ╠╩  ╔#▒  ").String()+Cyan("`╠╠╠   ╙╠╠╠").String()+
 			Cyan("\n        ╠╠╠   ]╠╠╩").String()+Red("     └╝▒ ╙Γ ╩ ╔╬╩`     ").String()+Cyan("╠╠ε   ╠╠╠").String()+
 			Cyan("\n        ╠╠╠ε  ╚╠╠").String()+Red("   ╝╠▒╗, \"╓δΘ╦\",╓φ▒╬╠▒ε ").String()+Cyan("╚╠▒   ╠╠╠").String()+
-			Cyan("\n         ╚╠╠╠╠╠╠╠").String()+Red("         ,╠(").String()+Yellow("⬤").String()+Red(" ╩≈╔╓╓╓,   ").String()+Cyan("]╠╠   ╠╠╠").String()+
+			Cyan("\n         ╚╠╠╠╠╠╠╠").String()+Red("         ,╠ ").String()+Yellow("⬤ ").String()+Red(" ╩≈╔╓╓╓,  ").String()+Cyan("]╠╠   ╠╠╠").String()+
 			Cyan("\n              ╠╠╠⌐").String()+Red(" ²╠╠╝╩\"²╓∩⌠╙╠`φ, `╙╝╠  ").String()+Cyan("╠╠╠   ╠╠╠").String()+
 			Cyan("\n              [╠╠╠ ").String()+Red("     ╓@╬  ╬ ╠ε ╙╠φ   ").String()+Cyan(",╠╠Γ   ╠╠╠").String()+
 			Cyan("\n               ╠╠╠▒").String()+Red("  '╝╩\" .╬╠ ]╠ε  ╚╩  ").String()+Cyan("╔╠╠╠   ╓╠╠╠").String()+
