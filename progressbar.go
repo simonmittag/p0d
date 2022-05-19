@@ -23,8 +23,8 @@ type ChunkProps struct {
 }
 
 const EMPTY = " "
-const RAMPFILLED = "-"
-const FILLED = "="
+const RAMP = "-"
+const FULL = "="
 const CURRENT = ">"
 const OPEN = "["
 const CLOSE = "]"
@@ -32,7 +32,10 @@ const rt = "runtime: "
 const trt = "total runtime: %v"
 
 func (p *ProgressBar) updateRampStateForTimerPhase(now time.Time, pod *P0d) {
-	if pod.isTimerPhase(RampUp) || pod.isTimerPhase(RampDown) {
+	if pod.isTimerPhase(RampUp) ||
+		pod.isTimerPhase(RampDown) ||
+		//fixes UI bug during Bootstrap phase
+		pod.isTimerPhase(Bootstrap) {
 		p.markRamp(now, pod)
 	}
 }
@@ -63,6 +66,7 @@ func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 }
 
 func (p *ProgressBar) render(now time.Time, pod *P0d) string {
+
 	if pod.Stop.IsZero() {
 		curSecs := now.Sub(pod.Start).Seconds()
 
@@ -74,18 +78,30 @@ func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 		b.WriteString(Yellow(OPEN).String())
 
 		f := strings.Builder{}
-		for i := 0; i < fs; i++ {
-			if i < fs-1 {
+		for i := 0; i < fs-1; i++ {
+			if i < fs-2 {
 				if p.chunkProps[i].isRamp == true {
-					f.WriteString(RAMPFILLED)
+					if p.chunkProps[i].hasErrors {
+						f.WriteString(Red(RAMP).String())
+					} else {
+						f.WriteString(Cyan(RAMP).String())
+					}
 				} else {
-					f.WriteString(FILLED)
+					if p.chunkProps[i].hasErrors {
+						f.WriteString(Red(FULL).String())
+					} else {
+						f.WriteString(Cyan(FULL).String())
+					}
 				}
 			} else {
-				f.WriteString(CURRENT)
+				if p.chunkProps[i].hasErrors {
+					f.WriteString(Red(CURRENT).String())
+				} else {
+					f.WriteString(Cyan(CURRENT).String())
+				}
 			}
 		}
-		b.WriteString(Cyan(f.String()).String())
+		b.WriteString(f.String())
 
 		for j := fs; j <= p.size; j++ {
 			b.WriteString(EMPTY)
