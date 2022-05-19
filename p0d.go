@@ -254,7 +254,7 @@ Main:
 		}
 	}
 	p.setTimerPhase(Done)
-	log(Cyan("done").String())
+	log(Cyan("exiting").String())
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
