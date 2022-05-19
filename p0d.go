@@ -129,8 +129,8 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs:    d,
-			size:       20,
-			chunkProps: make([]ChunkProps, 20),
+			size:       30,
+			chunkProps: make([]ChunkProps, 30),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(cfg),
@@ -165,8 +165,8 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Interrupted:    false,
 		bar: &ProgressBar{
 			maxSecs:    cfg.Exec.DurationSeconds,
-			size:       20,
-			chunkProps: make([]ChunkProps, 20),
+			size:       30,
+			chunkProps: make([]ChunkProps, 30),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(*cfg),
@@ -199,6 +199,8 @@ func (p *P0d) Race() {
 	p.initOSStats()
 	ras := make(chan ReqAtmpt, 65535)
 	p.initReqAtmpts(ras)
+	//init UIState
+	p.bar.updateRampStateForTimerPhase(p.Start, p)
 	p.initLiveWriterFastLoop(10)
 
 	const prefix string = ""
@@ -245,6 +247,9 @@ Main:
 			now := time.Now()
 			p.bar.updateRampStateForTimerPhase(now, p)
 			p.ReqStats.update(ra, now, p.Config)
+			if len(ra.ResErr) > 0 {
+				p.bar.markError(now, p)
+			}
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
@@ -258,8 +263,8 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 		p.setTimerPhase(RampUp)
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
-			time.Sleep(p.staggerThreadsDuration())
 			go p.doReqAtmpts(i, ras, p.stopThreads[i])
+			time.Sleep(p.staggerThreadsDuration())
 		}
 		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
 	MainUpdate:
@@ -504,7 +509,10 @@ func (p *P0d) initLog() {
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
+var logLiveLock = sync.Mutex{}
+
 func (p *P0d) doLogLive() {
+	logLiveLock.Lock()
 	elpsd := time.Now()
 
 	lw := p.liveWriters
@@ -586,6 +594,7 @@ func (p *P0d) doLogLive() {
 
 	//need to flush manually here to keep stdout updated
 	lw[0].(*uilive.Writer).Flush()
+	logLiveLock.Unlock()
 }
 
 func (p *P0d) logSummary() {
