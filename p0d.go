@@ -207,6 +207,8 @@ func (p *P0d) Race() {
 	const backspace = "\x1b[%dD"
 
 	drain := func() {
+		//this one log event renders the progress bar at 0 seconds remaining
+		p.doLogLive()
 		p.Stop = time.Now()
 		p.setTimerPhase(Draining)
 		//we still want to watch draining but much faster.
