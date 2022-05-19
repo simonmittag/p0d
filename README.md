@@ -44,7 +44,7 @@ Run with config file
 
 ### Cli args
 ```
-λ p0d v0.2.4
+λ p0d v0.2.9
  usage: p0d [-f flag] [URL]
 
  flags:
