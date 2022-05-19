@@ -23,7 +23,7 @@ config:
   # Explicitly set the number of rows
   # or use `auto` to take the current
   # number of rows of your shell
-  rows: 39
+  rows: 35
   
   # Amount of times to repeat GIF
   # If value is -1, play once
@@ -42,7 +42,7 @@ config:
   # Maximum delay between frames in ms
   # Ignored if the `frameDelay` isn't set to `auto`
   # Set to `auto` to prevent limiting the max idle time
-  maxIdleTime: 120
+  maxIdleTime: 1000
   
   # The surrounding frame box
   # The `type` can be null, window, floating, or solid`
@@ -113,31 +113,31 @@ config:
 records:
   - delay: 0
     content: "λ "
-  - delay: 870
+  - delay: 70
     content: p
-  - delay: 217
+  - delay: 117
     content: '0'
   - delay: 126
     content: d
   - delay: 145
     content: ' '
-  - delay: 247
+  - delay: 147
     content: '-'
-  - delay: 473
+  - delay: 173
     content: C
   - delay: 167
     content: ' '
   - delay: 11
     content: .
-  - delay: 696
+  - delay: 96
     content: "/"
   - delay: 56
     content: e
   - delay: 160
     content: x
-  - delay: 312
+  - delay: 112
     content: amples/
-  - delay: 1104
+  - delay: 104
     content: c
   - delay: 137
     content: o
@@ -145,11 +145,11 @@ records:
     content: 'n'
   - delay: 157
     content: "\afig_"
-  - delay: 687
+  - delay: 187
     content: g
-  - delay: 247
+  - delay: 147
     content: 'et.yml '
-  - delay: 501
+  - delay: 101
     content: "\r\n\e[?2004l\r"
   - delay: 6
     content: "\e[36m\r\n        .╬╠╠╠╠╠╠╠╠╠╬`\e[0m\e[31m     ╠╠  ,╬╠     \e[0m\e[36m╙╠╠╠╠╠╠╠╠╠φ\e[0m\e[36m\r\n        ╠╠╠╙   ╠╠╠╙\e[0m\e[31m   ╠╬ε └╠ε ╠╩  ╔#▒  \e[0m\e[36m`╠╠╠   ╙╠╠╠\e[0m\e[36m\r\n        ╠╠╠   ]╠╠╩\e[0m\e[31m     └╝▒ ╙Γ ╩ ╔╬╩`     \e[0m\e[36m╠╠ε   ╠╠╠\e[0m\e[36m\r\n        ╠╠╠ε  ╚╠╠\e[0m\e[31m   ╝╠▒╗, \"╓δΘ╦\",╓φ▒╬╠▒ε \e[0m\e[36m╚╠▒   ╠╠╠\e[0m\e[36m\r\n         ╚╠╠╠╠╠╠╠\e[0m\e[31m         ,╠ \e[0m\e[33m⬤ \e[0m\e[31m ╩≈╔╓╓╓,  \e[0m\e[36m]╠╠   ╠╠╠\e[0m\e[36m\r\n              ╠╠╠⌐\e[0m\e[31m ²╠╠╝╩\"²╓∩⌠╙╠`φ, `╙╝╠  \e[0m\e[36m╠╠╠   ╠╠╠\e[0m\e[36m\r\n              [╠╠╠ \e[0m\e[31m     ╓@╬  ╬ ╠ε ╙╠φ   \e[0m\e[36m,╠╠Γ   ╠╠╠\e[0m\e[36m\r\n               ╠╠╠▒\e[0m\e[31m  '╝╩\" .╬╠ ]╠ε  ╚╩  \e[0m\e[36m╔╠╠╠   ╓╠╠╠\e[0m\e[36m\r\n               ╚╠╠╠╠φ,\e[0m\e[31m    ╠╩   ╠╛     \e[0m\e[36mφ╠╠╠╠╠╠╠╠╠╩\e[0m\r\n\e[36mp0d v0.2.9\r\n\e[0m\r\n\e[38;5;240m7:00PM\e[0m config loaded from '\e[33m./examples/config_get.yml\e[0m'\r\n\e[38;5;240m7:00PM\e[0m detected OS open file ulimit: \e[33m524,288\e[0m\r\n\e[38;5;240m7:00PM\e[0m \e[36mp0d-v0.2.9-race-094a51b0-f1d5-48d7-9698-d839e10313a8\e[0m starting engines\r\n\e[38;5;240m7:00PM\e[0m duration: \e[33m10 seconds\e[0m\r\n\e[38;5;240m7:00PM\e[0m preferred http version: \e[33m2.0\e[0m\r\n\e[38;5;240m7:00PM\e[0m max concurrent TCP conn(s): \e[33m128\e[0m\r\n\e[38;5;240m7:00PM\e[0m network dial timeout (inc. TLS handshake): \e[33m3 seconds\e[0m\r\n\e[38;5;240m7:00PM\e[0m \e[33mGET\e[0m \e[33mhttp://localhost:60083/mse6/get\e[0m\r\n\e[38;5;240m7:00PM\e[0m runtime: \e[33m[\e[0m                              \e[33m]\e[0m\e[36m eta \e[0m\e[36m10 seconds\e[0m\r\n\e[38;5;240m7:00PM\e[0m concurrent TCP conns: \e[36m0\e[0m\e[36m/\e[0m\e[36m128\e[0m\e[36m (ramping up)\e[0m\r\n\e[38;5;240m7:00PM\e[0m HTTP req: \e[36m0\e[0m\r\n\e[38;5;240m7:00PM\e[0m roundtrip throughput: \e[36m0\e[0m\e[36m/s\e[0m max: \e[35m0\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:00PM\e[0m mean roundtrip latency: \e[36m0\e[0m\e[36mms\e[0m\r\n\e[38;5;240m7:00PM\e[0m bytes read: \e[36m0 B\e[0m\r\n\e[38;5;240m7:00PM\e[0m read throughput: \e[36m0 B\e[0m\e[36m/s\e[0m max: \e[35m0 B\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:00PM\e[0m bytes written: \e[36m0 B\e[0m\r\n\e[38;5;240m7:00PM\e[0m write throughput: \e[36m0 B\e[0m\e[36m/s\e[0m max: \e[35m0 B\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:00PM\e[0m matching HTTP response codes: \e[36m0 (0.00%)\e[0m\r\n\e[38;5;240m7:00PM\e[0m transport errors: \e[36m0 (0.00%)\e[0m\r\n"
@@ -377,6 +377,6 @@ records:
     content: "\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[38;5;240m7:01PM\e[0m total runtime: \e[36m10 seconds\e[0m\r\n\e[38;5;240m7:01PM\e[0m concurrent TCP conns: \e[36m73\e[0m\e[36m/\e[0m\e[36m128\e[0m\e[36m (draining) \e[0m\r\n\e[38;5;240m7:01PM\e[0m HTTP req: \e[36m342,382\e[0m\r\n\e[38;5;240m7:01PM\e[0m roundtrip throughput: \e[36m34,237\e[0m\e[36m/s\e[0m max: \e[35m40,309\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m mean roundtrip latency: \e[36m3\e[0m\e[36mms\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes read: \e[36m53.2MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m read throughput: \e[36m5.3MiB\e[0m\e[36m/s\e[0m max: \e[35m6.3MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes written: \e[36m32.7MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m write throughput: \e[36m3.3MiB\e[0m\e[36m/s\e[0m max: \e[35m3.8MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m matching HTTP response codes: \e[36m342,382 (100.00%)\e[0m\r\n\e[38;5;240m7:01PM\e[0m transport errors: \e[36m0 (0.00%)\e[0m\r\n"
   - delay: 101
     content: "\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[38;5;240m7:01PM\e[0m total runtime: \e[36m10 seconds\e[0m\r\n\e[38;5;240m7:01PM\e[0m concurrent TCP conns: \e[36m0\e[0m\e[36m/\e[0m\e[36m128\e[0m\e[36m (draining) \e[0m\r\n\e[38;5;240m7:01PM\e[0m HTTP req: \e[36m342,382\e[0m\r\n\e[38;5;240m7:01PM\e[0m roundtrip throughput: \e[36m34,237\e[0m\e[36m/s\e[0m max: \e[35m40,309\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m mean roundtrip latency: \e[36m3\e[0m\e[36mms\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes read: \e[36m53.2MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m read throughput: \e[36m5.3MiB\e[0m\e[36m/s\e[0m max: \e[35m6.3MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes written: \e[36m32.7MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m write throughput: \e[36m3.3MiB\e[0m\e[36m/s\e[0m max: \e[35m3.8MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m matching HTTP response codes: \e[36m342,382 (100.00%)\e[0m\r\n\e[38;5;240m7:01PM\e[0m transport errors: \e[36m0 (0.00%)\e[0m\r\n\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[1A\e[2K\e[38;5;240m7:01PM\e[0m total runtime: \e[36m10 seconds\e[0m\r\n\e[38;5;240m7:01PM\e[0m concurrent TCP conns: \e[36m0\e[0m\e[36m/\e[0m\e[36m128\e[0m\e[36m (drained)\e[0m\r\n\e[38;5;240m7:01PM\e[0m HTTP req: \e[36m342,382\e[0m\r\n\e[38;5;240m7:01PM\e[0m roundtrip throughput: \e[36m34,237\e[0m\e[36m/s\e[0m max: \e[35m40,309\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m mean roundtrip latency: \e[36m3\e[0m\e[36mms\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes read: \e[36m53.2MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m read throughput: \e[36m5.3MiB\e[0m\e[36m/s\e[0m max: \e[35m6.3MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m bytes written: \e[36m32.7MiB\e[0m\r\n\e[38;5;240m7:01PM\e[0m write throughput: \e[36m3.3MiB\e[0m\e[36m/s\e[0m max: \e[35m3.8MiB\e[0m\e[35m/s\e[0m\r\n\e[38;5;240m7:01PM\e[0m matching HTTP response codes: \e[36m342,382 (100.00%)\e[0m\r\n\e[38;5;240m7:01PM\e[0m transport errors: \e[36m0 (0.00%)\e[0m\r\n\e[38;5;240m7:01PM\e[0m \e[36mexiting\e[0m\r\n"
-  - delay: 20
+  - delay: 1000
     content: "λ "
 
