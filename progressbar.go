@@ -10,12 +10,20 @@ import (
 )
 
 type ProgressBar struct {
-	curSecs int
-	maxSecs int
-	size    int
+	curSecs    int
+	maxSecs    int
+	size       int
+	chunkProps []ChunkProps
+}
+
+type ChunkProps struct {
+	index     int
+	isRamp    bool
+	hasErrors bool
 }
 
 const EMPTY = " "
+const RAMPFILLED = "-"
 const FILLED = "="
 const CURRENT = ">"
 const OPEN = "["
@@ -23,8 +31,41 @@ const CLOSE = "]"
 const rt = "runtime: "
 const trt = "total runtime: %v"
 
-func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
+func (p *ProgressBar) updateRampStateForTimerPhase(now time.Time, pod *P0d) {
+	if pod.isTimerPhase(RampUp) || pod.isTimerPhase(RampDown) {
+		p.markRamp(now, pod)
+	}
+}
+
+func (p *ProgressBar) markRamp(chunkTime time.Time, pod *P0d) {
+	i := p.chunkPropIndexFor(chunkTime, pod)
+	p.chunkProps[i].isRamp = p.chunkProps[i].isRamp || true
+}
+
+func (p *ProgressBar) markError(chunkTime time.Time, pod *P0d) {
+	i := p.chunkPropIndexFor(chunkTime, pod)
+	p.chunkProps[i].hasErrors = p.chunkProps[i].hasErrors || true
+}
+
+func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
+	chunkSizeSeconds := float64(pod.Config.Exec.DurationSeconds) / float64(p.size)
+	elapsed := chunkTime.Sub(pod.Start).Seconds()
+	if elapsed > 0 {
+		i := int(math.Ceil(elapsed/chunkSizeSeconds)) - 1
+		if i <= p.size-1 {
+			return i
+		} else {
+			return p.size - 1
+		}
+	} else {
+		return 0
+	}
+}
+
+func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 	if pod.Stop.IsZero() {
+		curSecs := now.Sub(pod.Start).Seconds()
+
 		pctProgress := curSecs / float64(p.maxSecs)
 		fs := int(math.Ceil(pctProgress * float64(p.size)))
 
@@ -35,7 +76,11 @@ func (p *ProgressBar) render(curSecs float64, pod *P0d) string {
 		f := strings.Builder{}
 		for i := 0; i < fs; i++ {
 			if i < fs-1 {
-				f.WriteString(FILLED)
+				if p.chunkProps[i].isRamp == true {
+					f.WriteString(RAMPFILLED)
+				} else {
+					f.WriteString(FILLED)
+				}
 			} else {
 				f.WriteString(CURRENT)
 			}

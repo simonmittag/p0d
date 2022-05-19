@@ -128,8 +128,9 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		interrupt:      sigs,
 		Interrupted:    false,
 		bar: &ProgressBar{
-			maxSecs: d,
-			size:    20,
+			maxSecs:    d,
+			size:       20,
+			chunkProps: make([]ChunkProps, 20),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(cfg),
@@ -163,8 +164,9 @@ func NewP0dFromFile(f string, o string) *P0d {
 		interrupt:      sigs,
 		Interrupted:    false,
 		bar: &ProgressBar{
-			maxSecs: cfg.Exec.DurationSeconds,
-			size:    20,
+			maxSecs:    cfg.Exec.DurationSeconds,
+			size:       20,
+			chunkProps: make([]ChunkProps, 20),
 		},
 		stopLiveWriters: make(chan struct{}),
 		stopThreads:     initStopThreads(*cfg),
@@ -238,7 +240,9 @@ Main:
 			p.setTimerPhase(RampDown)
 			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
 		case ra := <-ras:
-			p.ReqStats.update(ra, time.Now(), p.Config)
+			now := time.Now()
+			p.bar.updateRampStateForTimerPhase(now, p)
+			p.ReqStats.update(ra, now, p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
@@ -499,7 +503,7 @@ func (p *P0d) initLog() {
 }
 
 func (p *P0d) doLogLive() {
-	elpsd := time.Now().Sub(p.Start).Seconds()
+	elpsd := time.Now()
 
 	lw := p.liveWriters
 	i := 0
