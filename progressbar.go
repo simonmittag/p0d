@@ -50,7 +50,16 @@ func (p *ProgressBar) markError(chunkTime time.Time, pod *P0d) {
 func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 	chunkSizeSeconds := float64(pod.Config.Exec.DurationSeconds) / float64(p.size)
 	elapsed := chunkTime.Sub(pod.Start).Seconds()
-	return int(math.Floor(elapsed / chunkSizeSeconds))
+	if elapsed > 0 {
+		i := int(math.Ceil(elapsed/chunkSizeSeconds)) - 1
+		if i <= p.size-1 {
+			return i
+		} else {
+			return p.size - 1
+		}
+	} else {
+		return 0
+	}
 }
 
 func (p *ProgressBar) render(now time.Time, pod *P0d) string {
