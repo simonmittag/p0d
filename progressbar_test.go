@@ -7,9 +7,13 @@ import (
 
 func TestProgressBarMarkRamp(t *testing.T) {
 	layout := "2006-01-02T15:04:05.000Z"
-	p := P0d{}
+	p := P0d{
+		Config: Config{
+			Exec: Exec{
+				DurationSeconds: 30},
+		},
+	}
 	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
-	p.Stop, _ = time.Parse(layout, "2022-01-01T00:00:30.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -28,9 +32,13 @@ func TestProgressBarMarkRamp(t *testing.T) {
 
 func TestProgressBarMarkError(t *testing.T) {
 	layout := "2006-01-02T15:04:05.000Z"
-	p := P0d{}
+	p := P0d{
+		Config: Config{
+			Exec: Exec{
+				DurationSeconds: 30},
+		},
+	}
 	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
-	p.Stop, _ = time.Parse(layout, "2022-01-01T00:00:30.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -49,9 +57,13 @@ func TestProgressBarMarkError(t *testing.T) {
 
 func TestProgressBarChunkIndex(t *testing.T) {
 	layout := "2006-01-02T15:04:05.000Z"
-	p := P0d{}
+	p := P0d{
+		Config: Config{
+			Exec: Exec{
+				DurationSeconds: 30},
+		},
+	}
 	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
-	p.Stop, _ = time.Parse(layout, "2022-01-01T00:00:30.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
