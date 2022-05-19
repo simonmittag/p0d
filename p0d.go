@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.2.8"
+const Version string = "v0.2.9"
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"
