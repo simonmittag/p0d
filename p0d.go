@@ -513,6 +513,24 @@ func (p *P0d) initLog() {
 
 var logLiveLock = sync.Mutex{}
 
+const conMsg = "concurrent TCP conns: %s%s%s"
+
+var rampingUp = Cyan(" (ramping up)").String()
+var rampingDown = Cyan(" (ramping down)").String()
+var draining = Cyan(" (draining) ").String()
+var drained = Cyan(" (drained)").String()
+
+const httpReqSMsg = "HTTP req: %s"
+const readThroughputMsg = "roundtrip throughput: %s%s max: %s%s"
+const meanRoundTripLatency = "mean roundtrip latency: %s%s"
+const bytesReadMsg = "bytes read: %s"
+const readthroughputMsg = "read throughput: %s%s max: %s%s"
+const perSecondMsg = "/s"
+const bytesWrittenMsg = "bytes written: %s"
+const writeThroughputMsg = "write throughput: %s%s max: %s%s"
+const matchingResponseCodesMsg = "matching HTTP response codes: %v"
+const transportErrorsMsg = "transport errors: %v"
+
 func (p *P0d) doLogLive() {
 	logLiveLock.Lock()
 	elpsd := time.Now()
@@ -523,17 +541,18 @@ func (p *P0d) doLogLive() {
 
 	i++
 	oss := p.getOSStats()
-	connMsg := "concurrent TCP conns: %s%s%s"
+
+	connMsg := conMsg
 	if p.isTimerPhase(RampUp) {
-		connMsg += Cyan(" (ramping up)").String()
+		connMsg += rampingUp
 	} else if p.isTimerPhase(Main) {
 		//nothing here
 	} else if p.isTimerPhase(RampDown) {
-		connMsg += Cyan(" (ramping down)").String()
+		connMsg += rampingDown
 	} else if p.isTimerPhase(Draining) {
-		connMsg += Cyan(" (draining) ").String()
+		connMsg += draining
 	} else if p.isTimerPhase(Drained) {
-		connMsg += Cyan(" (drained)").String()
+		connMsg += drained
 	}
 
 	fmt.Fprintf(lw[i], timefmt(connMsg),
@@ -542,56 +561,64 @@ func (p *P0d) doLogLive() {
 		Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"),
+
+	fmt.Fprintf(lw[i], timefmt(httpReqSMsg),
 		Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(readThroughputMsg),
 		Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(FGroup(int64(p.ReqStats.MaxReqAtmptsPSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("mean roundtrip latency: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(meanRoundTripLatency),
 		Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))),
 		Cyan("ms"))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("bytes read: %s"),
+	fmt.Fprintf(lw[i], timefmt(bytesReadMsg),
 		Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("read throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("bytes written: %s"),
+
+	fmt.Fprintf(lw[i], timefmt(bytesWrittenMsg),
 		Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
 	i++
-	fmt.Fprintf(lw[i], timefmt("write throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
 	mrc := Cyan(fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumMatchingResponseCodes)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.ReqStats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
+
+	fmt.Fprintf(lw[i], timefmt(matchingResponseCodesMsg), mrc)
 
 	i++
 	tte := fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumErrors)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.ReqStats.PctErrors*100))/100))
+
 	if p.ReqStats.SumErrors > 0 {
-		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Red(tte))
+		fmt.Fprintf(lw[i], timefmt(transportErrorsMsg), Red(tte))
 	} else {
-		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(lw[i], timefmt(transportErrorsMsg), Cyan(tte))
 	}
 
 	//need to flush manually here to keep stdout updated
