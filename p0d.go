@@ -37,24 +37,26 @@ var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
 
 type P0d struct {
-	ID              string
-	PID             int
-	TimerPhase      TimerPhase
-	Config          Config
+	ID               string
+	PID              int
+	TimerPhase       TimerPhase
+	Config           Config
+	ReqStats         *ReqStats
+	Start            time.Time
+	Stop             time.Time
+	OSStats          []OSStats
+	OSMaxOpenConns   int
+	OSLimitOpenFiles int64
+	Output           string
+	Interrupted      bool
+
 	client          map[int]*http.Client
-	ReqStats        *ReqStats
-	OSStats         []OSStats
-	Start           time.Time
-	Stop            time.Time
-	Output          string
 	outFile         *os.File
 	liveWriters     []io.Writer
 	bar             *ProgressBar
-	Interrupted     bool
 	interrupt       chan os.Signal
 	stopLiveWriters chan struct{}
 	stopThreads     []chan struct{}
-	OsMaxOpenFiles  int64
 }
 
 type TimerPhase int
@@ -121,12 +123,13 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		OSStats:        make([]OSStats, 0),
-		Start:          start,
-		Output:         o,
-		OsMaxOpenFiles: ul,
-		interrupt:      sigs,
-		Interrupted:    false,
+		OSStats:          make([]OSStats, 0),
+		Start:            start,
+		Output:           o,
+		OSLimitOpenFiles: ul,
+		OSMaxOpenConns:   0,
+		interrupt:        sigs,
+		Interrupted:      false,
 		bar: &ProgressBar{
 			maxSecs:    d,
 			size:       30,
@@ -157,12 +160,13 @@ func NewP0dFromFile(f string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		OSStats:        make([]OSStats, 0),
-		Start:          time.Now(),
-		Output:         o,
-		OsMaxOpenFiles: ul,
-		interrupt:      sigs,
-		Interrupted:    false,
+		OSStats:          make([]OSStats, 0),
+		Start:            time.Now(),
+		Output:           o,
+		OSLimitOpenFiles: ul,
+		OSMaxOpenConns:   0,
+		interrupt:        sigs,
+		Interrupted:      false,
 		bar: &ProgressBar{
 			maxSecs:    cfg.Exec.DurationSeconds,
 			size:       30,
@@ -174,7 +178,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 }
 
 func (p *P0d) Race() {
-	_, p.OsMaxOpenFiles = getUlimit()
+	_, p.OSLimitOpenFiles = getUlimit()
 	p.initLog()
 
 	defer func() {
@@ -221,7 +225,7 @@ func (p *P0d) Race() {
 	Drain:
 		//TODO: this is max 10 seconds
 		for i := 0; i < 100; i++ {
-			if p.getOSStats().PidOpenConns == 0 {
+			if p.getOSStats().OpenConns == 0 {
 				break Drain
 			}
 			time.Sleep(time.Millisecond * 100)
@@ -268,7 +272,7 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
 	MainUpdate:
 		for {
-			if p.getOSStats().PidOpenConns >= p.Config.Exec.Concurrency {
+			if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
 				p.setTimerPhase(Main)
 				break MainUpdate
 			}
@@ -482,12 +486,12 @@ func (p *P0d) initLog() {
 		log("config loaded from '%s'", Yellow(p.Config.File))
 	}
 
-	if p.OsMaxOpenFiles == 0 {
+	if p.OSLimitOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		log("%v", msg)
-	} else if p.OsMaxOpenFiles <= int64(p.Config.Exec.Concurrency) {
-		msg := fmt.Sprintf("detected low OS max open file limit %s, reduce concurrency from %s",
-			Red(FGroup(int64(p.OsMaxOpenFiles))),
+	} else if p.OSLimitOpenFiles <= int64(p.Config.Exec.Concurrency) {
+		msg := fmt.Sprintf("detected low OS open file limit %s, reduce concurrency from %s",
+			Red(FGroup(int64(p.OSLimitOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		log(msg)
 	} else {
@@ -513,6 +517,25 @@ func (p *P0d) initLog() {
 
 var logLiveLock = sync.Mutex{}
 
+const conMsg = "concurrent TCP conns: %s%s%s"
+
+var rampingUp = Cyan(" (ramping up)").String()
+var rampingDown = Cyan(" (ramping down)").String()
+var draining = Cyan(" (draining) ").String()
+var drained = Cyan(" (drained)").String()
+
+const httpReqSMsg = "HTTP req: %s"
+const readThroughputMsg = "roundtrip throughput: %s%s max: %s%s"
+const meanRoundTripLatency = "mean roundtrip latency: %s%s"
+const bytesReadMsg = "bytes read: %s"
+const readthroughputMsg = "read throughput: %s%s max: %s%s"
+const perSecondMsg = "/s"
+const bytesWrittenMsg = "bytes written: %s"
+const writeThroughputMsg = "write throughput: %s%s max: %s%s"
+const matchingResponseCodesMsg = "matching HTTP response codes: %v"
+const transportErrorsMsg = "transport errors: %v"
+const maxMsg = " max: "
+
 func (p *P0d) doLogLive() {
 	logLiveLock.Lock()
 	elpsd := time.Now()
@@ -523,75 +546,87 @@ func (p *P0d) doLogLive() {
 
 	i++
 	oss := p.getOSStats()
-	connMsg := "concurrent TCP conns: %s%s%s"
+
+	connMsg := conMsg
 	if p.isTimerPhase(RampUp) {
-		connMsg += Cyan(" (ramping up)").String()
+		connMsg += rampingUp
 	} else if p.isTimerPhase(Main) {
 		//nothing here
 	} else if p.isTimerPhase(RampDown) {
-		connMsg += Cyan(" (ramping down)").String()
+		connMsg += rampingDown
 	} else if p.isTimerPhase(Draining) {
-		connMsg += Cyan(" (draining) ").String()
+		connMsg += draining
 	} else if p.isTimerPhase(Drained) {
-		connMsg += Cyan(" (drained)").String()
+		connMsg += drained
 	}
 
+	connMsg += maxMsg
+	connMsg += Magenta(FGroup(int64(p.OSMaxOpenConns))).String()
+
 	fmt.Fprintf(lw[i], timefmt(connMsg),
-		Cyan(FGroup(int64(oss.PidOpenConns))),
+		Cyan(FGroup(int64(oss.OpenConns))),
 		Cyan("/"),
 		Cyan(FGroup(int64(p.Config.Exec.Concurrency))))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("HTTP req: %s"),
+
+	fmt.Fprintf(lw[i], timefmt(httpReqSMsg),
 		Cyan(FGroup(int64(p.ReqStats.ReqAtmpts))))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("roundtrip throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(readThroughputMsg),
 		Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(FGroup(int64(p.ReqStats.MaxReqAtmptsPSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("mean roundtrip latency: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(meanRoundTripLatency),
 		Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))),
 		Cyan("ms"))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("bytes read: %s"),
+	fmt.Fprintf(lw[i], timefmt(bytesReadMsg),
 		Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("read throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
-	fmt.Fprintf(lw[i], timefmt("bytes written: %s"),
+
+	fmt.Fprintf(lw[i], timefmt(bytesWrittenMsg),
 		Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
 	i++
-	fmt.Fprintf(lw[i], timefmt("write throughput: %s%s max: %s%s"),
+
+	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))),
-		Cyan("/s"),
+		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenSec))),
-		Magenta("/s"))
+		Magenta(perSecondMsg))
 
 	i++
 	mrc := Cyan(fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumMatchingResponseCodes)),
 		fmt.Sprintf("%.2f", math.Floor(float64(p.ReqStats.PctMatchingResponseCodes*100))/100)))
-	fmt.Fprintf(lw[i], timefmt("matching HTTP response codes: %v"), mrc)
+
+	fmt.Fprintf(lw[i], timefmt(matchingResponseCodesMsg), mrc)
 
 	i++
 	tte := fmt.Sprintf("%s (%s%%)",
 		FGroup(int64(p.ReqStats.SumErrors)),
 		fmt.Sprintf("%.2f", math.Ceil(float64(p.ReqStats.PctErrors*100))/100))
+
 	if p.ReqStats.SumErrors > 0 {
-		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Red(tte))
+		fmt.Fprintf(lw[i], timefmt(transportErrorsMsg), Red(tte))
 	} else {
-		fmt.Fprintf(lw[i], timefmt("transport errors: %v"), Cyan(tte))
+		fmt.Fprintf(lw[i], timefmt(transportErrorsMsg), Cyan(tte))
 	}
 
 	//need to flush manually here to keep stdout updated
@@ -661,6 +696,9 @@ func (p *P0d) doOSSStats() {
 	oss := NewOSStats(p.PID)
 	oss.updateOpenConns(p.Config)
 	p.OSStats = append(p.OSStats, *oss)
+	if oss.OpenConns > p.OSMaxOpenConns {
+		p.OSMaxOpenConns = oss.OpenConns
+	}
 	osMutex.Unlock()
 }
 
@@ -668,7 +706,7 @@ func (p *P0d) getOSStats() OSStats {
 	//first time this runs OSS Stats may not have been initialized
 	if len(p.OSStats) == 0 {
 		oss := *NewOSStats(os.Getpid())
-		oss.PidOpenConns = 0
+		oss.OpenConns = 0
 		return oss
 	} else {
 		return p.OSStats[len(p.OSStats)-1]
