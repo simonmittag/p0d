@@ -62,16 +62,16 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 }
 
 type OSStats struct {
-	Pid          int
-	Now          time.Time
-	PidOpenConns int
+	Pid       int
+	Now       time.Time
+	OpenConns int
 }
 
 func NewOSStats(pid int) *OSStats {
 	return &OSStats{
-		Pid:          pid,
-		Now:          time.Now(),
-		PidOpenConns: 0,
+		Pid:       pid,
+		Now:       time.Now(),
+		OpenConns: 0,
 	}
 }
 
@@ -89,6 +89,6 @@ func (oss *OSStats) updateOpenConns(cfg Config) {
 				d++
 			}
 		}
-		oss.PidOpenConns = d
+		oss.OpenConns = d
 	}
 }
