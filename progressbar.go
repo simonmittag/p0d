@@ -100,7 +100,7 @@ func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 		}
 		b.WriteString(f.String())
 
-		for j := fsi; j <= p.size; j++ {
+		for j := fsi; j < p.size-1; j++ {
 			b.WriteString(EMPTY)
 		}
 		b.WriteString(Yellow(CLOSE).String())
