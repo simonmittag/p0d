@@ -1,6 +1,8 @@
 package p0d
 
 import (
+	"github.com/acarl005/stripansi"
+	"strings"
 	"testing"
 	"time"
 )
@@ -98,5 +100,34 @@ func TestProgressBarChunkIndex(t *testing.T) {
 		if got != tc.wantIndex {
 			t.Errorf("bad chunk index for deltaSeconds %v, want %v got %v", tc.deltaSecond, tc.wantIndex, got)
 		}
+	}
+}
+
+func TestProgressBarRenderLength(t *testing.T) {
+	layout := "2006-01-02T15:04:05.000Z"
+	want := 30
+	p := P0d{
+		Config: Config{
+			Exec: Exec{
+				DurationSeconds: 300,
+				RampSeconds:     60,
+			},
+		},
+	}
+	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
+
+	pb := ProgressBar{
+		curSecs:    0,
+		maxSecs:    300,
+		size:       want,
+		chunkProps: make([]ChunkProps, want),
+	}
+
+	bar := stripansi.Strip(pb.render(p.Start, &p))
+	b := strings.Index(bar, "[") + 1
+	e := strings.Index(bar, "]")
+	got := len(bar[b:e])
+	if got != want {
+		t.Errorf("bar length incorrect, want %v, but got %v", want, got)
 	}
 }
