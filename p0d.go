@@ -37,18 +37,18 @@ var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
 
 type P0d struct {
-	ID             string
-	PID            int
-	TimerPhase     TimerPhase
-	Config         Config
-	ReqStats       *ReqStats
-	Start          time.Time
-	Stop           time.Time
-	OSStats        []OSStats
-	OSMaxOpenConns int
-	OSMaxOpenFiles int64
-	Output         string
-	Interrupted    bool
+	ID               string
+	PID              int
+	TimerPhase       TimerPhase
+	Config           Config
+	ReqStats         *ReqStats
+	Start            time.Time
+	Stop             time.Time
+	OSStats          []OSStats
+	OSMaxOpenConns   int
+	OSLimitOpenFiles int64
+	Output           string
+	Interrupted      bool
 
 	client          map[int]*http.Client
 	outFile         *os.File
@@ -123,13 +123,13 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		OSStats:        make([]OSStats, 0),
-		Start:          start,
-		Output:         o,
-		OSMaxOpenFiles: ul,
-		OSMaxOpenConns: 0,
-		interrupt:      sigs,
-		Interrupted:    false,
+		OSStats:          make([]OSStats, 0),
+		Start:            start,
+		Output:           o,
+		OSLimitOpenFiles: ul,
+		OSMaxOpenConns:   0,
+		interrupt:        sigs,
+		Interrupted:      false,
 		bar: &ProgressBar{
 			maxSecs:    d,
 			size:       30,
@@ -160,13 +160,13 @@ func NewP0dFromFile(f string, o string) *P0d {
 			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
-		OSStats:        make([]OSStats, 0),
-		Start:          time.Now(),
-		Output:         o,
-		OSMaxOpenFiles: ul,
-		OSMaxOpenConns: 0,
-		interrupt:      sigs,
-		Interrupted:    false,
+		OSStats:          make([]OSStats, 0),
+		Start:            time.Now(),
+		Output:           o,
+		OSLimitOpenFiles: ul,
+		OSMaxOpenConns:   0,
+		interrupt:        sigs,
+		Interrupted:      false,
 		bar: &ProgressBar{
 			maxSecs:    cfg.Exec.DurationSeconds,
 			size:       30,
@@ -178,7 +178,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 }
 
 func (p *P0d) Race() {
-	_, p.OSMaxOpenFiles = getUlimit()
+	_, p.OSLimitOpenFiles = getUlimit()
 	p.initLog()
 
 	defer func() {
@@ -486,12 +486,12 @@ func (p *P0d) initLog() {
 		log("config loaded from '%s'", Yellow(p.Config.File))
 	}
 
-	if p.OSMaxOpenFiles == 0 {
+	if p.OSLimitOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		log("%v", msg)
-	} else if p.OSMaxOpenFiles <= int64(p.Config.Exec.Concurrency) {
-		msg := fmt.Sprintf("detected low OS max open file limit %s, reduce concurrency from %s",
-			Red(FGroup(int64(p.OSMaxOpenFiles))),
+	} else if p.OSLimitOpenFiles <= int64(p.Config.Exec.Concurrency) {
+		msg := fmt.Sprintf("detected low OS open file limit %s, reduce concurrency from %s",
+			Red(FGroup(int64(p.OSLimitOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		log(msg)
 	} else {
