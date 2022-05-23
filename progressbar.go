@@ -54,7 +54,7 @@ func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 	chunkSizeSeconds := float64(pod.Config.Exec.DurationSeconds) / float64(p.size)
 	elapsed := chunkTime.Sub(pod.Start).Seconds()
 	if elapsed > 0 {
-		i := int(math.Ceil(elapsed/chunkSizeSeconds)) - 1
+		i := int(math.Floor(elapsed / chunkSizeSeconds))
 		if i <= p.size-1 {
 			return i
 		} else {
@@ -68,18 +68,15 @@ func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 
 	if pod.Stop.IsZero() {
-		curSecs := now.Sub(pod.Start).Seconds()
-
-		pctProgress := curSecs / float64(p.maxSecs)
-		fs := int(math.Ceil(pctProgress * float64(p.size)))
+		fsi := p.chunkPropIndexFor(now, pod)
 
 		b := strings.Builder{}
 		b.WriteString(rt)
 		b.WriteString(Yellow(OPEN).String())
 
 		f := strings.Builder{}
-		for i := 0; i < fs-1; i++ {
-			if i < fs-2 {
+		for i := 0; i <= fsi; i++ {
+			if i < fsi {
 				if p.chunkProps[i].isRamp == true {
 					if p.chunkProps[i].hasErrors {
 						f.WriteString(Red(RAMP).String())
@@ -103,11 +100,12 @@ func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 		}
 		b.WriteString(f.String())
 
-		for j := fs; j <= p.size; j++ {
+		for j := fsi; j <= p.size; j++ {
 			b.WriteString(EMPTY)
 		}
 		b.WriteString(Yellow(CLOSE).String())
 		//remaining whole seconds
+		curSecs := now.Sub(pod.Start).Seconds()
 		t := (time.Second * time.Duration(p.maxSecs-int(curSecs))).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("%s", Cyan(" eta ").String()+Cyan(durafmt.Parse(t).LimitFirstN(2).String()).String()))
 		return b.String()

@@ -177,6 +177,18 @@ func (p *P0d) Race() {
 	_, p.OsMaxOpenFiles = getUlimit()
 	p.initLog()
 
+	defer func() {
+		if p.outFile != nil {
+			p.outFile.Close()
+		}
+	}()
+
+	p.initOutFile()
+	p.initOSStats()
+	ras := make(chan ReqAtmpt, 65535)
+	//init UIState
+	p.bar.updateRampStateForTimerPhase(p.Start, p)
+
 	//init timer for rampdown trigger
 	rampdown := make(chan struct{})
 	time.AfterFunc(time.Duration(p.Config.Exec.DurationSeconds-p.Config.Exec.RampSeconds)*time.Second, func() {
@@ -189,18 +201,8 @@ func (p *P0d) Race() {
 		drainer <- struct{}{}
 	})
 
-	defer func() {
-		if p.outFile != nil {
-			p.outFile.Close()
-		}
-	}()
-
-	p.initOutFile()
-	p.initOSStats()
-	ras := make(chan ReqAtmpt, 65535)
 	p.initReqAtmpts(ras)
-	//init UIState
-	p.bar.updateRampStateForTimerPhase(p.Start, p)
+
 	p.initLiveWriterFastLoop(10)
 
 	const prefix string = ""
@@ -243,13 +245,8 @@ Main:
 		case <-rampdown:
 			p.setTimerPhase(RampDown)
 			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
-		case ra := <-ras:
-			now := time.Now()
-			p.bar.updateRampStateForTimerPhase(now, p)
-			p.ReqStats.update(ra, now, p.Config)
-			if len(ra.ResErr) > 0 {
-				p.bar.markError(now, p)
-			}
+		case ra := <-ras: //sets timerphase for when this is read, not at the time when request was made.
+			p.ReqStats.update(ra, ra.Stop, p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
 	}
@@ -264,7 +261,9 @@ func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
 			//stagger the initialisation so we can watch ramp up live.
 			go p.doReqAtmpts(i, ras, p.stopThreads[i])
-			time.Sleep(p.staggerThreadsDuration())
+			if p.Config.Exec.Concurrency > 1 && i < p.Config.Exec.Concurrency-1 {
+				time.Sleep(p.staggerThreadsDuration())
+			}
 		}
 		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
 	MainUpdate:
@@ -285,8 +284,6 @@ func (p *P0d) staggerThreadsDuration() time.Duration {
 }
 
 func (p *P0d) doReqAtmpts(i int, ras chan<- ReqAtmpt, done <-chan struct{}) {
-	p.client[i].CloseIdleConnections()
-
 ReqAtmpt:
 	for {
 		select {
@@ -303,6 +300,7 @@ ReqAtmpt:
 		ra := ReqAtmpt{
 			Start: time.Now(),
 		}
+		p.bar.updateRampStateForTimerPhase(ra.Start, p)
 
 		var body io.Reader
 
@@ -393,6 +391,10 @@ ReqAtmpt:
 				em = e.Error()
 			}
 			ra.ResErr = em
+		}
+
+		if len(ra.ResErr) > 0 {
+			p.bar.markError(ra.Stop, p)
 		}
 
 		//null this aggressively

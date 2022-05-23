@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewP0dFromFile(t *testing.T) {
@@ -236,5 +237,35 @@ func TestTimerPhase(t *testing.T) {
 	}
 	if !p2.isTimerPhase(Done) {
 		t.Error("should have done")
+	}
+}
+
+func TestStaggerThreadsDuration(t *testing.T) {
+	p := P0d{
+		Config: Config{
+			Exec: Exec{
+				RampSeconds: 12,
+				Concurrency: 3,
+			},
+		},
+	}
+
+	f := p.staggerThreadsDuration()
+	if f != 4.0*time.Second {
+		t.Error("invalid stagger period")
+	}
+
+	p2 := P0d{
+		Config: Config{
+			Exec: Exec{
+				RampSeconds: 60,
+				Concurrency: 2048,
+			},
+		},
+	}
+
+	f2 := p2.staggerThreadsDuration()
+	if f2 != time.Duration(float64(0.029296875)*float64(time.Second)) {
+		t.Error("invalid stagger period")
 	}
 }
