@@ -108,7 +108,6 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 	}
 	cfg = *cfg.validate()
 
-	start := time.Now()
 	_, ul := getUlimit()
 
 	sigs := make(chan os.Signal, 1)
@@ -120,11 +119,9 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		Config:     cfg,
 		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
-			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
 		OSStats:          make([]OSStats, 0),
-		Start:            start,
 		Output:           o,
 		OSLimitOpenFiles: ul,
 		OSMaxOpenConns:   0,
@@ -145,7 +142,6 @@ func NewP0dFromFile(f string, o string) *P0d {
 	cfg.File = f
 	cfg = cfg.validate()
 
-	start := time.Now()
 	_, ul := getUlimit()
 
 	sigs := make(chan os.Signal, 1)
@@ -157,11 +153,9 @@ func NewP0dFromFile(f string, o string) *P0d {
 		Config:     *cfg,
 		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
-			Start:      start,
 			ErrorTypes: make(map[string]int),
 		},
 		OSStats:          make([]OSStats, 0),
-		Start:            time.Now(),
 		Output:           o,
 		OSLimitOpenFiles: ul,
 		OSMaxOpenConns:   0,
@@ -177,6 +171,12 @@ func NewP0dFromFile(f string, o string) *P0d {
 	}
 }
 
+func (p *P0d) StartTimeNow() {
+	now := time.Now()
+	p.Start = now
+	p.ReqStats.Start = now
+}
+
 func (p *P0d) Race() {
 	_, p.OSLimitOpenFiles = getUlimit()
 	p.initLog()
@@ -186,12 +186,11 @@ func (p *P0d) Race() {
 			p.outFile.Close()
 		}
 	}()
-
 	p.initOutFile()
-	p.initOSStats()
-	ras := make(chan ReqAtmpt, 65535)
-	//init UIState
+
+	p.StartTimeNow()
 	p.bar.updateRampStateForTimerPhase(p.Start, p)
+	p.initOSStats()
 
 	//init timer for rampdown trigger
 	rampdown := make(chan struct{})
@@ -205,6 +204,8 @@ func (p *P0d) Race() {
 		drainer <- struct{}{}
 	})
 
+	//init req attempts loop
+	ras := make(chan ReqAtmpt, 65535)
 	p.initReqAtmpts(ras)
 
 	p.initLiveWriterFastLoop(10)
@@ -483,34 +484,36 @@ func (p *P0d) initLog() {
 	PrintVersion()
 	fmt.Printf("\n")
 	if p.Config.File != "" {
-		log("config loaded from '%s'", Yellow(p.Config.File))
+		slog("config loaded from '%s'", Yellow(p.Config.File))
 	}
 
 	if p.OSLimitOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
-		log("%v", msg)
+		slog("%v", msg)
 	} else if p.OSLimitOpenFiles <= int64(p.Config.Exec.Concurrency) {
 		msg := fmt.Sprintf("detected low OS open file limit %s, reduce concurrency from %s",
 			Red(FGroup(int64(p.OSLimitOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
-		log(msg)
+		slog(msg)
 	} else {
 		ul, _ := getUlimit()
-		log("detected OS open file ulimit: %s", ul)
+		slog("detected OS open file ulimit: %s", ul)
 	}
-	log("%s starting engines", Cyan(p.ID))
-	log("duration: %s",
+	time.Sleep(time.Millisecond * 200)
+
+	slog("%s starting engines", Cyan(p.ID))
+	slog("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
-	log("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
-	log("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
-	log("network dial timeout (inc. TLS handshake): %s",
+	slog("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
+	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
+	slog("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		log("request spacing: %s",
+		slog("request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		log("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }

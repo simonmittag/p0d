@@ -16,6 +16,11 @@ func log(s string, args ...any) {
 	fmt.Printf(timefmt(s), args...)
 }
 
+func slog(s string, args ...any) {
+	time.Sleep(time.Millisecond * 250)
+	fmt.Printf(timefmt(s), args...)
+}
+
 func timefmt(s string) string {
 	now := time.Now().Format(time.Kitchen)
 	return fmt.Sprintf("%s %s\n", Gray(8, now), s)
