@@ -9,6 +9,7 @@ import (
 	"github.com/hako/durafmt"
 	. "github.com/logrusorgru/aurora"
 	"io"
+	"io/ioutil"
 	"math"
 	"math/rand"
 	"mime/multipart"
@@ -179,6 +180,7 @@ func (p *P0d) StartTimeNow() {
 
 func (p *P0d) Race() {
 	_, p.OSLimitOpenFiles = getUlimit()
+	p.detectHTTPVersion()
 	p.initLog()
 
 	defer func() {
@@ -257,6 +259,22 @@ Main:
 	}
 	p.setTimerPhase(Done)
 	log(Cyan("exiting").String())
+}
+
+func (p *P0d) detectHTTPVersion() {
+	m := p.Config.Req.Method
+	u := p.Config.Req.Url
+	c := p.Config.scaffoldHttpClient(1)
+
+	r, _ := http.NewRequest(m, u, strings.NewReader("p0d is detecting your http version"))
+	rr, e := c.Do(r)
+	if e == nil {
+		io.Copy(ioutil.Discard, rr.Body)
+		defer rr.Body.Close()
+		p.ReqStats.DetectedHTTPVersion = fmt.Sprintf("%d.%d", rr.ProtoMajor, rr.ProtoMinor)
+	} else {
+		p.ReqStats.DetectedHTTPVersion = "not determined"
+	}
 }
 
 func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
@@ -501,10 +519,13 @@ func (p *P0d) initLog() {
 	}
 	time.Sleep(time.Millisecond * 200)
 
-	slog("%s starting engines", Cyan(p.ID))
 	slog("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
-	slog("preferred http version: %s", Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)))
+
+	slog("preferred http version: %s detected: %s",
+		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
+		Yellow(p.ReqStats.DetectedHTTPVersion),
+	)
 	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
 	slog("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
@@ -515,6 +536,7 @@ func (p *P0d) initLog() {
 	if len(p.Output) > 0 {
 		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
+	slog("%s starting engines", Cyan(p.ID))
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
 }
 
