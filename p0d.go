@@ -180,7 +180,7 @@ func (p *P0d) StartTimeNow() {
 
 func (p *P0d) Race() {
 	_, p.OSLimitOpenFiles = getUlimit()
-	p.detectHTTPVersion()
+	p.detectRemoteHTTPSettings()
 	p.initLog()
 
 	defer func() {
@@ -261,12 +261,10 @@ Main:
 	log(Cyan("exiting").String())
 }
 
-func (p *P0d) detectHTTPVersion() {
-	m := p.Config.Req.Method
-	u := p.Config.Req.Url
+func (p *P0d) detectRemoteHTTPSettings() {
 	c := p.Config.scaffoldHttpClient(1)
+	r := p.scaffoldHttpReq()
 
-	r, _ := http.NewRequest(m, u, strings.NewReader("p0d is detecting your http version"))
 	rr, e := c.Do(r)
 	if e == nil {
 		io.Copy(ioutil.Discard, rr.Body)
@@ -325,64 +323,7 @@ ReqAtmpt:
 		}
 		p.bar.updateRampStateForTimerPhase(ra.Start, p)
 
-		var body io.Reader
-
-		//multipartwriter adds a boundary
-		var mpContentType string
-
-		//needs to decide between url encoded, multipart form data and everything else
-		switch p.Config.Req.ContentType {
-		case applicationXWWWFormUrlEncoded:
-			data := url.Values{}
-			for _, fd := range p.Config.Req.FormData {
-				for k, v := range fd {
-					data.Add(k, v)
-				}
-			}
-			body = strings.NewReader(data.Encode())
-		case multipartFormdata:
-			var b bytes.Buffer
-			mpw := multipart.NewWriter(&b)
-
-			for _, fd := range p.Config.Req.FormData {
-				for k, v := range fd {
-					if strings.HasPrefix(k, AT) {
-						fw, _ := mpw.CreateFormFile(k, v)
-						mpContentType = mpw.FormDataContentType()
-						io.Copy(fw, bytes.NewReader(p.Config.Req.FormDataFiles[k]))
-					} else {
-						mpw.WriteField(k, v)
-					}
-				}
-			}
-
-			mpw.Close()
-			body = bytes.NewReader(b.Bytes())
-		case applicationJson:
-			fallthrough
-		default:
-			body = strings.NewReader(p.Config.Req.Body)
-		}
-
-		req, _ := http.NewRequest(p.Config.Req.Method,
-			p.Config.Req.Url,
-			body)
-
-		//set headers from config
-		if len(p.Config.Req.Headers) > 0 {
-			for _, h := range p.Config.Req.Headers {
-				for k, v := range h {
-					if k == ct && v == multipartFormdata {
-						req.Header.Set(k, mpContentType)
-					} else {
-						req.Header.Add(k, v)
-					}
-				}
-			}
-		}
-
-		//set user agent and default content type to application/json
-		req.Header.Set(ua, vs)
+		req := p.scaffoldHttpReq()
 
 		//measure for size before sending. We don't set content length, go does that internally
 		bq, _ := httputil.DumpRequest(req, true)
@@ -426,6 +367,69 @@ ReqAtmpt:
 		//and report back
 		ras <- ra
 	}
+}
+
+func (p *P0d) scaffoldHttpReq() *http.Request {
+	var body io.Reader
+
+	//multipartwriter adds a boundary
+	var mpContentType string
+
+	//needs to decide between url encoded, multipart form data and everything else
+	switch p.Config.Req.ContentType {
+	case applicationXWWWFormUrlEncoded:
+		data := url.Values{}
+		for _, fd := range p.Config.Req.FormData {
+			for k, v := range fd {
+				data.Add(k, v)
+			}
+		}
+		body = strings.NewReader(data.Encode())
+	case multipartFormdata:
+		var b bytes.Buffer
+		mpw := multipart.NewWriter(&b)
+
+		for _, fd := range p.Config.Req.FormData {
+			for k, v := range fd {
+				if strings.HasPrefix(k, AT) {
+					fw, _ := mpw.CreateFormFile(k, v)
+					mpContentType = mpw.FormDataContentType()
+					io.Copy(fw, bytes.NewReader(p.Config.Req.FormDataFiles[k]))
+				} else {
+					mpw.WriteField(k, v)
+				}
+			}
+		}
+
+		mpw.Close()
+		body = bytes.NewReader(b.Bytes())
+	case applicationJson:
+		fallthrough
+	default:
+		body = strings.NewReader(p.Config.Req.Body)
+	}
+
+	req, _ := http.NewRequest(p.Config.Req.Method,
+		p.Config.Req.Url,
+		body)
+
+	//set headers from config
+	if len(p.Config.Req.Headers) > 0 {
+		for _, h := range p.Config.Req.Headers {
+			for k, v := range h {
+				if k == ct && v == multipartFormdata {
+					req.Header.Set(k, mpContentType)
+				} else {
+					req.Header.Add(k, v)
+				}
+			}
+		}
+	}
+
+	//set user agent
+	req.Header.Set(ua, vs)
+
+	return req
 }
 
 func (p *P0d) stopReqAtmptsThreads(staggerThreadsDuration time.Duration) {
