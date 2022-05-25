@@ -1,0 +1,16 @@
+---
+exec:
+  mode: binary
+  durationSeconds: 10
+  dialTimeoutSeconds: 3
+  rampSeconds: 3
+  concurrency: 6
+  logsampling: 0.1
+  httpVersion: 2
+req:
+  method: GET
+  url: https://www.google.com/search?q=test
+  headers:
+    - Accept-Encoding: "identity"
+res:
+  code: 200
