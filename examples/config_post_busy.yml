@@ -2,7 +2,7 @@
 exec:
   durationSeconds: 300
   rampSeconds: 60
-  concurrency: 2048
+  concurrency: 4096
   logsampling: 0.01
   httpVersion: 1.1
 req:

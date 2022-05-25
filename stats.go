@@ -22,6 +22,7 @@ type ReqStats struct {
 	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
 	PctMatchingResponseCodes float32
+	DetectedHTTPVersion      string
 	SumErrors                int
 	PctErrors                float32
 	ErrorTypes               map[string]int
