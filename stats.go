@@ -7,6 +7,7 @@ import (
 )
 
 type Sample struct {
+	Server      string
 	HTTPVersion string
 	TLSVersion  string
 	IPVersion   string
@@ -17,6 +18,7 @@ const emptySampleMsg = "not detected"
 
 func NewSample() Sample {
 	return Sample{
+		Server:      emptySampleMsg,
 		HTTPVersion: emptySampleMsg,
 		TLSVersion:  emptySampleMsg,
 		IPVersion:   emptySampleMsg,
