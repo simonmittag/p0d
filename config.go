@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ghodss/yaml"
 	. "github.com/logrusorgru/aurora"
+	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"math"
@@ -276,6 +277,10 @@ func (cfg Config) scaffoldHttpClients() map[int]*http.Client {
 const httpIdleTimeout = time.Duration(1) * time.Second
 
 func (cfg Config) scaffoldHttpClient(max int) *http.Client {
+	return cfg.scaffoldHttpClientWith(max, false, nil)
+}
+
+func (cfg Config) scaffoldHttpClientWith(max int, connSpy bool, pod *P0d) *http.Client {
 	tlsc := &tls.Config{
 		MinVersion:         tls.VersionTLS11,
 		MaxVersion:         tls.VersionTLS12,
@@ -284,10 +289,24 @@ func (cfg Config) scaffoldHttpClient(max int) *http.Client {
 
 	t := &http.Transport{
 		DisableCompression: true,
-		DialContext: (&net.Dialer{
-			//we are aborting after n seconds of dial connect to complete and treat the dial as degraded
-			Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
-		}).DialContext,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			to := time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second
+			c1, e := net.DialTimeout(network, addr, to)
+			if connSpy {
+				pod.sampleConn = c1
+			}
+			return c1, e
+		},
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			nd := net.Dialer{
+				Timeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
+			}
+			c1, e := tls.DialWithDialer(&nd, network, addr, tlsc)
+			if connSpy {
+				pod.sampleConn = c1
+			}
+			return c1, e
+		},
 		//TLS handshake timeout is the same as connection timeout
 		TLSHandshakeTimeout: time.Duration(cfg.Exec.DialTimeoutSeconds) * time.Second,
 		TLSClientConfig:     tlsc,

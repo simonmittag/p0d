@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 	"math"
 	"math/rand"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -52,6 +54,7 @@ type P0d struct {
 	Interrupted      bool
 
 	client          map[int]*http.Client
+	sampleConn      net.Conn
 	outFile         *os.File
 	liveWriters     []io.Writer
 	bar             *ProgressBar
@@ -121,6 +124,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
+			Sample:     NewSample(),
 		},
 		OSStats:          make([]OSStats, 0),
 		Output:           o,
@@ -155,6 +159,7 @@ func NewP0dFromFile(f string, o string) *P0d {
 		client:     cfg.scaffoldHttpClients(),
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
+			Sample:     NewSample(),
 		},
 		OSStats:          make([]OSStats, 0),
 		Output:           o,
@@ -180,7 +185,7 @@ func (p *P0d) StartTimeNow() {
 
 func (p *P0d) Race() {
 	_, p.OSLimitOpenFiles = getUlimit()
-	p.detectRemoteHTTPSettings()
+	p.detectRemoteConnSettings()
 	p.initLog()
 
 	defer func() {
@@ -261,17 +266,43 @@ Main:
 	log(Cyan("exiting").String())
 }
 
-func (p *P0d) detectRemoteHTTPSettings() {
-	c := p.Config.scaffoldHttpClient(1)
+const defMsg = "not detected"
+
+func (p *P0d) detectRemoteConnSettings() {
+	c := p.Config.scaffoldHttpClientWith(1, true, p)
 	r := p.scaffoldHttpReq()
 
 	rr, e := c.Do(r)
 	if e == nil {
 		io.Copy(ioutil.Discard, rr.Body)
 		defer rr.Body.Close()
-		p.ReqStats.DetectedHTTPVersion = fmt.Sprintf("%d.%d", rr.ProtoMajor, rr.ProtoMinor)
-	} else {
-		p.ReqStats.DetectedHTTPVersion = "not determined"
+		p.ReqStats.Sample.HTTPVersion = fmt.Sprintf("HTTP/%d.%d", rr.ProtoMajor, rr.ProtoMinor)
+
+		if rr.TLS != nil {
+			if rr.TLS.Version == tls.VersionSSL30 {
+				p.ReqStats.Sample.TLSVersion = "SSL3.0"
+			} else if rr.TLS.Version == tls.VersionTLS10 {
+				p.ReqStats.Sample.TLSVersion = "TLS1.0"
+			} else if rr.TLS.Version == tls.VersionTLS11 {
+				p.ReqStats.Sample.TLSVersion = "TLS1.1"
+			} else if rr.TLS.Version == tls.VersionTLS12 {
+				p.ReqStats.Sample.TLSVersion = "TLS1.2"
+			} else if rr.TLS.Version == tls.VersionTLS13 {
+				p.ReqStats.Sample.TLSVersion = "TLS1.3"
+			}
+		}
+
+		if p.sampleConn != nil {
+			ip := net.ParseIP(p.sampleConn.RemoteAddr().String())
+			ip4 := ip.To4()
+			if ip4 != nil {
+				p.ReqStats.Sample.IPVersion = "IPV4"
+			} else {
+				p.ReqStats.Sample.IPVersion = "IPV6"
+			}
+			p.ReqStats.Sample.RemoteAddr = p.sampleConn.RemoteAddr().String()
+			p.sampleConn.Close()
+		}
 	}
 }
 
@@ -519,29 +550,39 @@ func (p *P0d) initLog() {
 		slog(msg)
 	} else {
 		ul, _ := getUlimit()
-		slog("detected OS open file ulimit: %s", ul)
+		slog("detected local OS open file ulimit: %s", ul)
 	}
 	time.Sleep(time.Millisecond * 200)
 
-	slog("duration: %s",
+	slog("configured duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 
-	slog("preferred http version: %s detected: %s",
-		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
-		Yellow(p.ReqStats.DetectedHTTPVersion),
-	)
-	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
-	slog("network dial timeout (inc. TLS handshake): %s",
+	slog("configured max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
+	slog("configured network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		slog("request spacing: %s",
+		slog("configured request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("configured out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	slog("%s starting engines", Cyan(p.ID))
+	//slog("configured local http version: %s detected remote: %s",
+	//	Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
+	//	Yellow(p.ReqStats.Sample.HTTPVersion),
+	//)
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+	if p.ReqStats.Sample.TLSVersion == defMsg {
+		p.ReqStats.Sample.TLSVersion = N
+	}
+	slog("sampled remote conn settings: %s[%s] %s %s",
+		Yellow(p.ReqStats.Sample.RemoteAddr),
+		Yellow(p.ReqStats.Sample.IPVersion),
+		Yellow(p.ReqStats.Sample.HTTPVersion),
+		Yellow(p.ReqStats.Sample.TLSVersion),
+	)
+
+	slog("%s starting engines", Cyan(p.ID))
 }
 
 var logLiveLock = sync.Mutex{}
