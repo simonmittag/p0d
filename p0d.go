@@ -293,14 +293,14 @@ func (p *P0d) detectRemoteConnSettings() {
 		}
 
 		if p.sampleConn != nil {
-			ip := net.ParseIP(p.sampleConn.RemoteAddr().String())
-			ip4 := ip.To4()
+			addr, _, _ := net.SplitHostPort(p.sampleConn.RemoteAddr().String())
+			ip4 := net.ParseIP(addr).To4()
 			if ip4 != nil {
 				p.ReqStats.Sample.IPVersion = "IPV4"
 			} else {
 				p.ReqStats.Sample.IPVersion = "IPV6"
 			}
-			p.ReqStats.Sample.RemoteAddr = p.sampleConn.RemoteAddr().String()
+			p.ReqStats.Sample.RemoteAddr = addr
 			p.sampleConn.Close()
 		}
 	}
@@ -575,11 +575,13 @@ func (p *P0d) initLog() {
 	if p.ReqStats.Sample.TLSVersion == defMsg {
 		p.ReqStats.Sample.TLSVersion = N
 	}
-	slog("sampled remote conn settings: %s[%s] %s %s",
-		Yellow(p.ReqStats.Sample.RemoteAddr),
-		Yellow(p.ReqStats.Sample.IPVersion),
-		Yellow(p.ReqStats.Sample.HTTPVersion),
-		Yellow(p.ReqStats.Sample.TLSVersion),
+	slog("sampled remote conn settings: %s%s%s%s %s %s",
+		Cyan(p.ReqStats.Sample.RemoteAddr),
+		Cyan("["),
+		Cyan(p.ReqStats.Sample.IPVersion),
+		Cyan("]"),
+		Cyan(p.ReqStats.Sample.HTTPVersion),
+		Cyan(p.ReqStats.Sample.TLSVersion),
 	)
 
 	slog("%s starting engines", Cyan(p.ID))
