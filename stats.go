@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+type Sample struct {
+	HTTPVersion string
+	TLSVersion  string
+	IPVersion   string
+	RemoteAddr  string
+}
+
+const emptySampleMsg = "not detected"
+
+func NewSample() Sample {
+	return Sample{
+		HTTPVersion: emptySampleMsg,
+		TLSVersion:  emptySampleMsg,
+		IPVersion:   emptySampleMsg,
+		RemoteAddr:  emptySampleMsg,
+	}
+}
+
 type ReqStats struct {
 	Start                    time.Time
 	Elpsd                    time.Duration
@@ -22,7 +40,7 @@ type ReqStats struct {
 	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
 	PctMatchingResponseCodes float32
-	DetectedHTTPVersion      string
+	Sample                   Sample
 	SumErrors                int
 	PctErrors                float32
 	ErrorTypes               map[string]int
