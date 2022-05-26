@@ -1,0 +1,16 @@
+---
+exec:
+  mode: binary
+  durationSeconds: 30
+  dialTimeoutSeconds: 3
+  rampSeconds: 3
+  concurrency: 128
+  logsampling: 0.1
+  httpVersion: 1.1
+req:
+  method: GET
+  url: https://127.0.0.1:8443/mse6/get
+  headers:
+    - Accept-Encoding: "identity"
+res:
+  code: 200
