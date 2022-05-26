@@ -274,6 +274,8 @@ func (p *P0d) detectRemoteConnSettings() {
 
 	rr, e := c.Do(r)
 	if e == nil {
+		p.ReqStats.Sample.Server = rr.Header.Get("Server")
+
 		io.Copy(ioutil.Discard, rr.Body)
 		defer rr.Body.Close()
 		p.ReqStats.Sample.HTTPVersion = fmt.Sprintf("HTTP/%d.%d", rr.ProtoMajor, rr.ProtoMinor)
@@ -567,21 +569,32 @@ func (p *P0d) initLog() {
 	if len(p.Output) > 0 {
 		slog("configured out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	//slog("configured local http version: %s detected remote: %s",
-	//	Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
-	//	Yellow(p.ReqStats.Sample.HTTPVersion),
-	//)
+	slog("configured preferred http version: %s ",
+		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
+	)
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+
+	tv := ""
 	if p.ReqStats.Sample.TLSVersion == defMsg {
-		p.ReqStats.Sample.TLSVersion = N
+		tv = N
+	} else {
+		tv = p.ReqStats.Sample.TLSVersion
 	}
-	slog("sampled remote conn settings: %s%s%s%s %s %s",
+
+	sv := ""
+	if p.ReqStats.Sample.Server == defMsg {
+		sv = N
+	} else {
+		sv = p.ReqStats.Sample.Server + " "
+	}
+	slog("sampled remote conn settings: %s%s%s%s%s %s %s",
+		Cyan(sv),
 		Cyan(p.ReqStats.Sample.RemoteAddr),
 		Cyan("["),
 		Cyan(p.ReqStats.Sample.IPVersion),
 		Cyan("]"),
 		Cyan(p.ReqStats.Sample.HTTPVersion),
-		Cyan(p.ReqStats.Sample.TLSVersion),
+		Cyan(tv),
 	)
 
 	slog("%s starting engines", Cyan(p.ID))
