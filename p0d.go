@@ -197,7 +197,9 @@ func (p *P0d) Race() {
 
 	p.StartTimeNow()
 	p.bar.updateRampStateForTimerPhase(p.Start, p)
-	p.initOSStats()
+
+	osStatsDone := make(chan struct{})
+	p.initOSStats(osStatsDone)
 
 	//init timer for rampdown trigger
 	rampdown := make(chan struct{})
@@ -263,6 +265,8 @@ Main:
 		}
 	}
 	p.setTimerPhase(Done)
+
+	osStatsDone <- struct{}{}
 	log(Cyan("exiting").String())
 }
 
@@ -764,12 +768,18 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 	}
 }
 
-func (p *P0d) initOSStats() {
+func (p *P0d) initOSStats(done chan struct{}) {
 	p.PID = os.Getpid()
 	go func() {
+	OSStats:
 		for {
-			p.doOSSStats()
-			time.Sleep(time.Millisecond * 250)
+			select {
+			case <-done:
+				break OSStats
+			default:
+				p.doOSSStats()
+				time.Sleep(time.Millisecond * 250)
+			}
 		}
 	}()
 }
