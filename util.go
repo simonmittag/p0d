@@ -17,7 +17,7 @@ func log(s string, args ...any) {
 }
 
 func slog(s string, args ...any) {
-	time.Sleep(time.Millisecond * 250)
+	time.Sleep(time.Millisecond * 125)
 	fmt.Printf(timefmt(s), args...)
 }
 

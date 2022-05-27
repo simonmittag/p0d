@@ -215,7 +215,10 @@ func (p *P0d) Race() {
 
 	//init req attempts loop
 	ras := make(chan ReqAtmpt, 65535)
-	p.initReqAtmpts(ras)
+
+	//this done channel is buffered because it may be too late to signal. we don't want to block
+	initReqAtmptsDone := make(chan struct{}, 2)
+	p.initReqAtmpts(initReqAtmptsDone, ras)
 
 	p.initLiveWriterFastLoop(10)
 
@@ -226,6 +229,7 @@ func (p *P0d) Race() {
 
 	drain := func() {
 		//this one log event renders the progress bar at 0 seconds remaining
+		initReqAtmptsDone <- struct{}{}
 		p.doLogLive()
 		p.Stop = time.Now()
 		p.setTimerPhase(Draining)
@@ -312,25 +316,37 @@ func (p *P0d) detectRemoteConnSettings() {
 	}
 }
 
-func (p *P0d) initReqAtmpts(ras chan ReqAtmpt) {
+func (p *P0d) initReqAtmpts(done chan struct{}, ras chan ReqAtmpt) {
+
 	//don't block because execution continues on to live updates
 	go func() {
+		bd := false
 		p.setTimerPhase(RampUp)
+	RampUp:
 		for i := 0; i < p.Config.Exec.Concurrency; i++ {
-			//stagger the initialisation so we can watch ramp up live.
-			go p.doReqAtmpts(i, ras, p.stopThreads[i])
-			if p.Config.Exec.Concurrency > 1 && i < p.Config.Exec.Concurrency-1 {
-				time.Sleep(p.staggerThreadsDuration())
+			select {
+			case <-done:
+				bd = true
+				break RampUp
+			default:
+				//stagger the initialisation so we can watch ramp up live.
+				go p.doReqAtmpts(i, ras, p.stopThreads[i])
+				if p.Config.Exec.Concurrency > 1 && i < p.Config.Exec.Concurrency-1 {
+					time.Sleep(p.staggerThreadsDuration())
+				}
 			}
 		}
-		//can we do this so main only starts after concurrency is reached? what if it never does? it's stuck on ramping
-	MainUpdate:
-		for {
-			if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
-				p.setTimerPhase(Main)
-				break MainUpdate
+
+		//we don't want to run this if we aborted above
+		if !bd && p.TimerPhase < Main {
+		MainUpdate:
+			for {
+				if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
+					p.setTimerPhase(Main)
+					break MainUpdate
+				}
+				time.Sleep(time.Millisecond * 100)
 			}
-			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 }
