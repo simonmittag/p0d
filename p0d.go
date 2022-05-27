@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -245,6 +246,9 @@ func (p *P0d) Race() {
 			p.doLogLive()
 		}
 		p.setTimerPhase(Drained)
+		//do this so no cur atmpts continue to be reported and all remaining decrease timers fire
+		time.Sleep(time.Millisecond * 1010)
+		atomic.StoreInt64(&p.ReqStats.CurReqAtmptsPSec, 0)
 		p.closeLiveWritersAndSummarize()
 	}
 Main:
@@ -262,7 +266,7 @@ Main:
 		case <-rampdown:
 			p.setTimerPhase(RampDown)
 			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
-		case ra := <-ras: //sets timerphase for when this is read, not at the time when request was made.
+		case ra := <-ras:
 			p.ReqStats.update(ra, ra.Stop, p.Config)
 			p.outFileRequestAttempt(ra, prefix, indent, comma)
 		}
@@ -575,20 +579,20 @@ func (p *P0d) initLog() {
 	}
 	time.Sleep(time.Millisecond * 200)
 
-	slog("configured duration: %s",
+	slog("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 
-	slog("configured max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
-	slog("configured network dial timeout (inc. TLS handshake): %s",
+	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
+	slog("network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		slog("configured request spacing: %s",
+		slog("request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		slog("configured out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	slog("configured preferred http version: %s ",
+	slog("preferred http version: %s ",
 		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
 	)
 	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
@@ -629,13 +633,13 @@ var draining = Cyan(" (draining) ").String()
 var drained = Cyan(" (drained)").String()
 
 const httpReqSMsg = "HTTP req: %s"
-const readThroughputMsg = "roundtrip throughput: %s%s max: %s%s"
-const meanRoundTripLatency = "mean roundtrip latency: %s%s"
+const roundtripThroughputMsg = "roundtrip throughput: %s%s mean: %s%s max: %s%s"
+const meanRoundTripLatency = "roundtrip latency mean: %s%s"
 const bytesReadMsg = "bytes read: %s"
-const readthroughputMsg = "read throughput: %s%s max: %s%s"
+const readthroughputMsg = "read throughput mean: %s%s max: %s%s"
 const perSecondMsg = "/s"
 const bytesWrittenMsg = "bytes written: %s"
-const writeThroughputMsg = "write throughput: %s%s max: %s%s"
+const writeThroughputMsg = "write throughput mean: %s%s max: %s%s"
 const matchingResponseCodesMsg = "matching HTTP response codes: %v"
 const transportErrorsMsg = "transport errors: %v"
 const maxMsg = " max: "
@@ -679,8 +683,10 @@ func (p *P0d) doLogLive() {
 
 	i++
 
-	fmt.Fprintf(lw[i], timefmt(readThroughputMsg),
-		Cyan(FGroup(int64(p.ReqStats.ReqAtmptsPSec))),
+	fmt.Fprintf(lw[i], timefmt(roundtripThroughputMsg),
+		Cyan(FGroup(int64(p.ReqStats.CurReqAtmptsPSec))),
+		Cyan(perSecondMsg),
+		Cyan(FGroup(int64(p.ReqStats.MeanReqAtmptsPSec))),
 		Cyan(perSecondMsg),
 		Magenta(FGroup(int64(p.ReqStats.MaxReqAtmptsPSec))),
 		Magenta(perSecondMsg))

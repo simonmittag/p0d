@@ -3,6 +3,7 @@ package p0d
 import (
 	"github.com/simonmittag/procspy"
 	"math"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,9 +30,10 @@ func NewSample() Sample {
 type ReqStats struct {
 	Start                    time.Time
 	Elpsd                    time.Duration
-	ReqAtmpts                int
-	ReqAtmptsPSec            int
-	MaxReqAtmptsPSec         int
+	ReqAtmpts                int64
+	CurReqAtmptsPSec         int64
+	MeanReqAtmptsPSec        int64
+	MaxReqAtmptsPSec         int64
 	SumBytesRead             int64
 	MeanBytesReadSec         int
 	MaxBytesReadSec          int
@@ -51,10 +53,15 @@ type ReqStats struct {
 func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.Elpsd = now.Sub(s.Start)
-	s.ReqAtmptsPSec = int(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
-	if s.ReqAtmptsPSec > s.MaxReqAtmptsPSec {
-		s.MaxReqAtmptsPSec = s.ReqAtmptsPSec
+	s.MeanReqAtmptsPSec = int64(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
+
+	crs := atomic.AddInt64(&s.CurReqAtmptsPSec, 1)
+	if crs > s.MaxReqAtmptsPSec {
+		s.MaxReqAtmptsPSec = crs
 	}
+	time.AfterFunc(time.Second*1, func() {
+		atomic.AddInt64(&s.CurReqAtmptsPSec, -1)
+	})
 
 	s.SumBytesRead += atmpt.ResBytes
 	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
