@@ -237,8 +237,7 @@ func (p *P0d) Race() {
 		p.stopReqAtmptsThreads(time.Millisecond * 1)
 		p.stopLiveWriterFastLoop()
 	Drain:
-		//TODO: this is max 10 seconds
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 300; i++ {
 			if p.getOSStats().OpenConns == 0 {
 				break Drain
 			}
