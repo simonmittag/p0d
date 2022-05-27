@@ -794,7 +794,7 @@ func (p *P0d) initOSStats(done chan struct{}) {
 				break OSStats
 			default:
 				p.doOSSStats()
-				time.Sleep(time.Millisecond * 250)
+				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}()
