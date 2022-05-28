@@ -52,7 +52,7 @@ func (p *ProgressBar) markError(chunkTime time.Time, pod *P0d) {
 
 func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 	chunkSizeSeconds := float64(pod.Config.Exec.DurationSeconds) / float64(p.size)
-	elapsed := chunkTime.Sub(pod.Start).Seconds()
+	elapsed := chunkTime.Sub(pod.Time.Start).Seconds()
 	if elapsed > 0 {
 		i := int(math.Floor(elapsed / chunkSizeSeconds))
 		if i <= p.size-1 {
@@ -67,7 +67,7 @@ func (p *ProgressBar) chunkPropIndexFor(chunkTime time.Time, pod *P0d) int {
 
 func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 
-	if pod.Stop.IsZero() {
+	if pod.Time.Stop.IsZero() {
 		fsi := p.chunkPropIndexFor(now, pod)
 
 		b := strings.Builder{}
@@ -105,13 +105,13 @@ func (p *ProgressBar) render(now time.Time, pod *P0d) string {
 		}
 		b.WriteString(Yellow(CLOSE).String())
 		//remaining whole seconds
-		curSecs := now.Sub(pod.Start).Seconds()
+		curSecs := now.Sub(pod.Time.Start).Seconds()
 		t := (time.Second * time.Duration(p.maxSecs-int(curSecs))).Truncate(time.Second)
 		b.WriteString(fmt.Sprintf("%s", Cyan(" eta ").String()+Cyan(durafmt.Parse(t).LimitFirstN(2).String()).String()))
 		return b.String()
 	} else {
 		//truncate runtime as seconds
-		elapsed := durafmt.Parse(pod.Stop.Sub(pod.Start).Truncate(time.Second)).LimitFirstN(2).String()
+		elapsed := durafmt.Parse(pod.Time.Stop.Sub(pod.Time.Start).Truncate(time.Second)).LimitFirstN(2).String()
 
 		return fmt.Sprintf(trt, Cyan(elapsed))
 	}

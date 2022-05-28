@@ -150,7 +150,7 @@ func TestRaceWithOutput(t *testing.T) {
 }
 
 func TestTimerPhase(t *testing.T) {
-	p := P0d{TimerPhase: Bootstrap}
+	p := P0d{Time: Time{Phase: Bootstrap}}
 
 	p.setTimerPhase(Bootstrap)
 	if !p.isTimerPhase(Bootstrap) {
@@ -227,7 +227,7 @@ func TestTimerPhase(t *testing.T) {
 		t.Error("should have done")
 	}
 
-	p2 := P0d{TimerPhase: RampUp}
+	p2 := P0d{Time: Time{Phase: RampUp}}
 	p2.setTimerPhase(Done)
 	if p2.isTimerPhase(RampUp) {
 		t.Error("should NOT have rampup")

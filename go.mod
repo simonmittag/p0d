@@ -15,6 +15,7 @@ require (
 require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/weaveworks/procspy v0.0.0-20150706124340-cb970aa190c3 // indirect
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.6 // indirect
