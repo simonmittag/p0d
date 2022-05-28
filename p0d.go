@@ -199,7 +199,7 @@ func (p *P0d) Race() {
 	p.StartTimeNow()
 	p.bar.updateRampStateForTimerPhase(p.Start, p)
 
-	osStatsDone := make(chan struct{})
+	osStatsDone := make(chan struct{}, 2)
 	p.initOSStats(osStatsDone)
 
 	//init timer for rampdown trigger
@@ -240,6 +240,7 @@ func (p *P0d) Race() {
 	Drain:
 		for i := 0; i < 300; i++ {
 			if p.getOSStats().OpenConns == 0 {
+				osStatsDone <- struct{}{}
 				break Drain
 			}
 			time.Sleep(time.Millisecond * 100)
