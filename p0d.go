@@ -41,18 +41,13 @@ var vs = fmt.Sprintf("p0d %s", Version)
 var bodyTypes = []string{"POST", "PUT", "PATCH"}
 
 type P0d struct {
-	ID               string
-	PID              int
-	TimerPhase       TimerPhase
-	Config           Config
-	ReqStats         *ReqStats
-	Start            time.Time
-	Stop             time.Time
-	OSStats          []OSStats
-	OSMaxOpenConns   int
-	OSLimitOpenFiles int64
-	Output           string
-	Interrupted      bool
+	ID          string
+	Time        Time
+	Config      Config
+	OS          OS
+	ReqStats    *ReqStats
+	Output      string
+	Interrupted bool
 
 	client          map[int]*http.Client
 	sampleConn      net.Conn
@@ -62,6 +57,20 @@ type P0d struct {
 	interrupt       chan os.Signal
 	stopLiveWriters chan struct{}
 	stopThreads     []chan struct{}
+}
+
+type Time struct {
+	Start time.Time
+	Stop  time.Time
+	Phase TimerPhase
+}
+
+type OS struct {
+	PID            int
+	OpenConns      []OSOpenConns
+	MaxOpenConns   int
+	LimitOpenFiles int64
+	LimitRAM       uint64
 }
 
 type TimerPhase int
@@ -95,6 +104,12 @@ func initStopThreads(cfg Config) []chan struct{} {
 	return v
 }
 
+func interruptChannel() chan os.Signal {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+	return sigs
+}
+
 func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 	hv, _ := strconv.ParseFloat(h, 32)
 
@@ -115,32 +130,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 
 	_, ul := getUlimit()
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
-
-	return &P0d{
-		ID:         createRunId(),
-		TimerPhase: Bootstrap,
-		Config:     cfg,
-		client:     cfg.scaffoldHttpClients(),
-		ReqStats: &ReqStats{
-			ErrorTypes: make(map[string]int),
-			Sample:     NewSample(),
-		},
-		OSStats:          make([]OSStats, 0),
-		Output:           o,
-		OSLimitOpenFiles: ul,
-		OSMaxOpenConns:   0,
-		interrupt:        sigs,
-		Interrupted:      false,
-		bar: &ProgressBar{
-			maxSecs:    d,
-			size:       30,
-			chunkProps: make([]ChunkProps, 30),
-		},
-		stopLiveWriters: make(chan struct{}),
-		stopThreads:     initStopThreads(cfg),
-	}
+	return NewP0d(cfg, ul, o, d, interruptChannel())
 }
 
 func NewP0dFromFile(f string, o string) *P0d {
@@ -150,42 +140,49 @@ func NewP0dFromFile(f string, o string) *P0d {
 
 	_, ul := getUlimit()
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+	return NewP0d(*cfg, ul, o, cfg.Exec.DurationSeconds, interruptChannel())
+}
 
+func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, interrupt chan os.Signal) *P0d {
 	return &P0d{
-		ID:         createRunId(),
-		TimerPhase: Bootstrap,
-		Config:     *cfg,
-		client:     cfg.scaffoldHttpClients(),
+		ID: createRunId(),
+		Time: Time{
+			Phase: Bootstrap,
+		},
+		Config: cfg,
+		OS: OS{
+			OpenConns:      make([]OSOpenConns, 0),
+			LimitOpenFiles: ulimit,
+			MaxOpenConns:   0,
+		},
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
 			Sample:     NewSample(),
 		},
-		OSStats:          make([]OSStats, 0),
-		Output:           o,
-		OSLimitOpenFiles: ul,
-		OSMaxOpenConns:   0,
-		interrupt:        sigs,
-		Interrupted:      false,
+		Output:      outputFile,
+		Interrupted: false,
+
+		client: cfg.scaffoldHttpClients(),
 		bar: &ProgressBar{
-			maxSecs:    cfg.Exec.DurationSeconds,
+			maxSecs:    durationSecs,
 			size:       30,
 			chunkProps: make([]ChunkProps, 30),
 		},
+		interrupt:       interrupt,
 		stopLiveWriters: make(chan struct{}),
-		stopThreads:     initStopThreads(*cfg),
+		stopThreads:     initStopThreads(cfg),
 	}
 }
 
 func (p *P0d) StartTimeNow() {
 	now := time.Now()
-	p.Start = now
+	p.Time.Start = now
 	p.ReqStats.Start = now
 }
 
 func (p *P0d) Race() {
-	_, p.OSLimitOpenFiles = getUlimit()
+	osStatsDone := make(chan struct{}, 2)
+	p.initOSStats(osStatsDone)
 	p.detectRemoteConnSettings()
 	p.initLog()
 
@@ -197,10 +194,7 @@ func (p *P0d) Race() {
 	p.initOutFile()
 
 	p.StartTimeNow()
-	p.bar.updateRampStateForTimerPhase(p.Start, p)
-
-	osStatsDone := make(chan struct{}, 2)
-	p.initOSStats(osStatsDone)
+	p.bar.updateRampStateForTimerPhase(p.Time.Start, p)
 
 	//init timer for rampdown trigger
 	rampdown := make(chan struct{})
@@ -232,7 +226,7 @@ func (p *P0d) Race() {
 		//this one log event renders the progress bar at 0 seconds remaining
 		initReqAtmptsDone <- struct{}{}
 		p.doLogLive()
-		p.Stop = time.Now()
+		p.Time.Stop = time.Now()
 		p.setTimerPhase(Draining)
 		//we still want to watch draining but much faster.
 		p.stopReqAtmptsThreads(time.Millisecond * 1)
@@ -342,7 +336,7 @@ func (p *P0d) initReqAtmpts(done chan struct{}, ras chan ReqAtmpt) {
 		}
 
 		//we don't want to run this if we aborted above
-		if !bd && p.TimerPhase < Main {
+		if !bd && p.Time.Phase < Main {
 		MainUpdate:
 			for {
 				if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
@@ -566,12 +560,38 @@ func (p *P0d) initLog() {
 		slog("config loaded from '%s'", Yellow(p.Config.File))
 	}
 
-	if p.OSLimitOpenFiles == 0 {
+	b128k := 2 << 16
+	wantRamBytes := uint64(p.Config.Exec.Concurrency * b128k)
+	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAM)) * 100
+
+	var ramUsagePctPrec string
+	if ramUsagePct < 0.001 {
+		ramUsagePctPrec = "%.4f"
+	} else {
+		ramUsagePctPrec = "%.2f"
+	}
+	if p.OS.LimitRAM == 0 {
+		msg := Red(fmt.Sprintf("unable to detect OS RAM"))
+		slog("%v", msg)
+	} else if p.OS.LimitRAM < wantRamBytes {
+		msg := fmt.Sprintf("detected low OS RAM %s, increase to %s or reduce concurrency from %s",
+			Red(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Red(p.Config.byteCount(int64(wantRamBytes))),
+			Red(FGroup(int64(p.Config.Exec.Concurrency))))
+		slog(msg)
+	} else {
+		slog("detected OS RAM: %s predicted use max %s %s",
+			Yellow(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Yellow(p.Config.byteCount(int64(wantRamBytes))),
+			Yellow("("+fmt.Sprintf(ramUsagePctPrec, ramUsagePct)+"%)"))
+	}
+
+	if p.OS.LimitOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		slog("%v", msg)
-	} else if p.OSLimitOpenFiles <= int64(p.Config.Exec.Concurrency) {
+	} else if p.OS.LimitOpenFiles <= int64(p.Config.Exec.Concurrency) {
 		msg := fmt.Sprintf("detected low OS open file limit %s, reduce concurrency from %s",
-			Red(FGroup(int64(p.OSLimitOpenFiles))),
+			Red(FGroup(int64(p.OS.LimitOpenFiles))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		slog(msg)
 	} else {
@@ -670,7 +690,7 @@ func (p *P0d) doLogLive() {
 	}
 
 	connMsg += maxMsg
-	connMsg += Magenta(FGroup(int64(p.OSMaxOpenConns))).String()
+	connMsg += Magenta(FGroup(int64(p.OS.MaxOpenConns))).String()
 
 	fmt.Fprintf(lw[i], timefmt(connMsg),
 		Cyan(FGroup(int64(oss.OpenConns))),
@@ -791,7 +811,9 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 }
 
 func (p *P0d) initOSStats(done chan struct{}) {
-	p.PID = os.Getpid()
+	p.OS.PID = os.Getpid()
+	_, p.OS.LimitOpenFiles = getUlimit()
+	p.OS.LimitRAM = getRAMBytes()
 	go func() {
 	OSStats:
 		for {
@@ -810,34 +832,34 @@ var osMutex = sync.Mutex{}
 
 func (p *P0d) doOSSStats() {
 	osMutex.Lock()
-	oss := NewOSStats(p.PID)
+	oss := NewOSStats(p.OS.PID)
 	oss.updateOpenConns(p.Config)
-	p.OSStats = append(p.OSStats, *oss)
-	if oss.OpenConns > p.OSMaxOpenConns {
-		p.OSMaxOpenConns = oss.OpenConns
+	p.OS.OpenConns = append(p.OS.OpenConns, *oss)
+	if oss.OpenConns > p.OS.MaxOpenConns {
+		p.OS.MaxOpenConns = oss.OpenConns
 	}
 	osMutex.Unlock()
 }
 
-func (p *P0d) getOSStats() OSStats {
+func (p *P0d) getOSStats() OSOpenConns {
 	//first time this runs OSS Stats may not have been initialized
-	if len(p.OSStats) == 0 {
+	if len(p.OS.OpenConns) == 0 {
 		oss := *NewOSStats(os.Getpid())
 		oss.OpenConns = 0
 		return oss
 	} else {
-		return p.OSStats[len(p.OSStats)-1]
+		return p.OS.OpenConns[len(p.OS.OpenConns)-1]
 	}
 }
 
 func (p *P0d) setTimerPhase(phase TimerPhase) {
-	if phase > p.TimerPhase {
-		p.TimerPhase = phase
+	if phase > p.Time.Phase {
+		p.Time.Phase = phase
 	}
 }
 
 func (p *P0d) isTimerPhase(phase TimerPhase) bool {
-	return p.TimerPhase == phase
+	return p.Time.Phase == phase
 }
 
 func createRunId() string {

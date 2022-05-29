@@ -89,21 +89,21 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.PctErrors = 100 * (float32(s.SumErrors) / float32(s.ReqAtmpts))
 }
 
-type OSStats struct {
-	Pid       int
+type OSOpenConns struct {
 	Now       time.Time
 	OpenConns int
+	pid       int
 }
 
-func NewOSStats(pid int) *OSStats {
-	return &OSStats{
-		Pid:       pid,
+func NewOSStats(pid int) *OSOpenConns {
+	return &OSOpenConns{
 		Now:       time.Now(),
 		OpenConns: 0,
+		pid:       pid,
 	}
 }
 
-func (oss *OSStats) updateOpenConns(cfg Config) {
+func (oss *OSOpenConns) updateOpenConns(cfg Config) {
 	//TODO: this produces a 0 when it shouldn't. after signalling CTRL+C this often returns intermittent 0
 	cs, e := procspy.Connections(true)
 	if e != nil {
@@ -113,7 +113,7 @@ func (oss *OSStats) updateOpenConns(cfg Config) {
 		for c := cs.Next(); c != nil; c = cs.Next() {
 			// fixes bug where pid connections to other network infra are reported as false positive, see:
 			// https://github.com/simonmittag/p0d/issues/31
-			if c.PID == uint(oss.Pid) && c.RemotePort == cfg.getRemotePort() {
+			if c.PID == uint(oss.pid) && c.RemotePort == cfg.getRemotePort() {
 				d++
 			}
 		}

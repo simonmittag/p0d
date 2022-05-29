@@ -12,6 +12,8 @@ github.com/mattn/go-isatty v0.0.14 h1:yVuAays6BHfxijgZPzw+3Zlu5yQgKGP2/hcQbHb7S9
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=
 github.com/mrnugget/uilive v0.0.4-fix-escape h1:KDkVqOHGDQlYN+yTGOoQ972J2pw7GrSkej+Rptme8ok=
 github.com/mrnugget/uilive v0.0.4-fix-escape/go.mod h1:V/epo5LjjlDE5RJUcqx8dbw+zc93y5Ya3yg8tfZ74VI=
+github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
+github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/simonmittag/procspy v0.0.0-20191119070947-e8cf3f846a67 h1:2vdAWuq0Bz3r4hu/1il3b6r40GtPu/CpOVy4mdd5u0s=
 github.com/simonmittag/procspy v0.0.0-20191119070947-e8cf3f846a67/go.mod h1:HUFk0D2ql6u0y8MaqlKQQty3NqIZGe/SvQt7D8QS5Ok=
 github.com/weaveworks/procspy v0.0.0-20150706124340-cb970aa190c3 h1:UC4iN/yCDCObTBhKzo34/R2U6qptTPmqbzG6UiQVMUQ=

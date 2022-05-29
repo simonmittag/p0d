@@ -15,7 +15,7 @@ func TestProgressBarMarkRamp(t *testing.T) {
 				DurationSeconds: 30},
 		},
 	}
-	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
+	p.Time.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -24,7 +24,7 @@ func TestProgressBarMarkRamp(t *testing.T) {
 		chunkProps: make([]ChunkProps, 20),
 	}
 
-	pn := p.Start.Add(3 * time.Second)
+	pn := p.Time.Start.Add(3 * time.Second)
 	pb.markRamp(pn, &p)
 
 	if pb.chunkProps[pb.chunkPropIndexFor(pn, &p)].isRamp == false {
@@ -40,7 +40,7 @@ func TestProgressBarMarkError(t *testing.T) {
 				DurationSeconds: 30},
 		},
 	}
-	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
+	p.Time.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -49,7 +49,7 @@ func TestProgressBarMarkError(t *testing.T) {
 		chunkProps: make([]ChunkProps, 20),
 	}
 
-	pn := p.Start.Add(3 * time.Second)
+	pn := p.Time.Start.Add(3 * time.Second)
 	pb.markError(pn, &p)
 
 	if pb.chunkProps[pb.chunkPropIndexFor(pn, &p)].hasErrors == false {
@@ -67,7 +67,7 @@ func TestProgressBarChunkIndex(t *testing.T) {
 			},
 		},
 	}
-	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
+	p.Time.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -95,7 +95,7 @@ func TestProgressBarChunkIndex(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		pns := p.Start.Add(time.Duration(tc.deltaSecond * float64(time.Second)))
+		pns := p.Time.Start.Add(time.Duration(tc.deltaSecond * float64(time.Second)))
 		got := pb.chunkPropIndexFor(pns, &p)
 		if got != tc.wantIndex {
 			t.Errorf("bad chunk index for deltaSeconds %v, want %v got %v", tc.deltaSecond, tc.wantIndex, got)
@@ -114,7 +114,7 @@ func TestProgressBarRenderLength(t *testing.T) {
 			},
 		},
 	}
-	p.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
+	p.Time.Start, _ = time.Parse(layout, "2022-01-01T00:00:00.000Z")
 
 	pb := ProgressBar{
 		curSecs:    0,
@@ -123,7 +123,7 @@ func TestProgressBarRenderLength(t *testing.T) {
 		chunkProps: make([]ChunkProps, want),
 	}
 
-	bar := stripansi.Strip(pb.render(p.Start, &p))
+	bar := stripansi.Strip(pb.render(p.Time.Start, &p))
 	b := strings.Index(bar, "[") + 1
 	e := strings.Index(bar, "]")
 	got := len(bar[b:e])
