@@ -109,7 +109,7 @@ func (cfg *Config) validate() *Config {
 		cfg.Exec.DialTimeoutSeconds = 3
 	}
 	if cfg.Exec.Mode == "" {
-		cfg.Exec.Mode = "decimal"
+		cfg.Exec.Mode = "binary"
 	}
 	if cfg.Exec.HttpVersion == 0 {
 		cfg.Exec.HttpVersion = http11
