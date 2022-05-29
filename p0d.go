@@ -565,7 +565,7 @@ func (p *P0d) initLog() {
 	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAM)) * 100
 
 	var ramUsagePctPrec string
-	if ramUsagePct < 0.001 {
+	if ramUsagePct < 0.01 {
 		ramUsagePctPrec = "%.4f"
 	} else {
 		ramUsagePctPrec = "%.2f"
