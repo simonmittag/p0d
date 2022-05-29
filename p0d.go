@@ -70,7 +70,7 @@ type OS struct {
 	OpenConns      []OSOpenConns
 	MaxOpenConns   int
 	LimitOpenFiles int64
-	LimitRAM       int64
+	LimitRAM       uint64
 }
 
 type TimerPhase int
@@ -181,7 +181,8 @@ func (p *P0d) StartTimeNow() {
 }
 
 func (p *P0d) Race() {
-	_, p.OS.LimitOpenFiles = getUlimit()
+	osStatsDone := make(chan struct{}, 2)
+	p.initOSStats(osStatsDone)
 	p.detectRemoteConnSettings()
 	p.initLog()
 
@@ -194,9 +195,6 @@ func (p *P0d) Race() {
 
 	p.StartTimeNow()
 	p.bar.updateRampStateForTimerPhase(p.Time.Start, p)
-
-	osStatsDone := make(chan struct{}, 2)
-	p.initOSStats(osStatsDone)
 
 	//init timer for rampdown trigger
 	rampdown := make(chan struct{})
@@ -562,6 +560,32 @@ func (p *P0d) initLog() {
 		slog("config loaded from '%s'", Yellow(p.Config.File))
 	}
 
+	b128k := 2 << 16
+	wantRamBytes := uint64(p.Config.Exec.Concurrency * b128k)
+	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAM)) * 100
+
+	var ramUsagePctPrec string
+	if ramUsagePct < 0.001 {
+		ramUsagePctPrec = "%.4f"
+	} else {
+		ramUsagePctPrec = "%.2f"
+	}
+	if p.OS.LimitRAM == 0 {
+		msg := Red(fmt.Sprintf("unable to detect OS RAM"))
+		slog("%v", msg)
+	} else if p.OS.LimitRAM < wantRamBytes {
+		msg := fmt.Sprintf("detected low OS RAM %s, increase to %s or reduce concurrency from %s",
+			Red(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Red(p.Config.byteCount(int64(wantRamBytes))),
+			Red(FGroup(int64(p.Config.Exec.Concurrency))))
+		slog(msg)
+	} else {
+		slog("detected OS RAM: %s predicted use max %s %s",
+			Yellow(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Yellow(p.Config.byteCount(int64(wantRamBytes))),
+			Yellow("("+fmt.Sprintf(ramUsagePctPrec, ramUsagePct)+"%)"))
+	}
+
 	if p.OS.LimitOpenFiles == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS open file limit"))
 		slog("%v", msg)
@@ -788,6 +812,8 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
+	_, p.OS.LimitOpenFiles = getUlimit()
+	p.OS.LimitRAM = getRAMBytes()
 	go func() {
 	OSStats:
 		for {

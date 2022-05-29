@@ -3,6 +3,7 @@ package p0d
 import (
 	"fmt"
 	. "github.com/logrusorgru/aurora"
+	"github.com/shirou/gopsutil/mem"
 	"strconv"
 	"syscall"
 	"time"
@@ -36,6 +37,11 @@ func getUlimit() (string, int64) {
 				Yellow(FGroup(int64(rLimit.Cur)))),
 			int64(rLimit.Cur)
 	}
+}
+
+func getRAMBytes() uint64 {
+	v, _ := mem.VirtualMemory()
+	return v.Total
 }
 
 func FGroup(n int64) string {
