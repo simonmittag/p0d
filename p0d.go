@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -66,11 +67,20 @@ type Time struct {
 }
 
 type OS struct {
-	PID            int
-	OpenConns      []OSOpenConns
-	MaxOpenConns   int
-	LimitOpenFiles int64
-	LimitRAM       uint64
+	PID               int
+	OpenConns         []OSOpenConns
+	MaxOpenConns      int
+	LimitOpenFiles    int64
+	LimitRAM          uint64
+	NetLatency        time.Duration
+	NetUlSpeedMBits   float64
+	NetDlSpeedMBits   float64
+	NetLatencyAborted bool
+
+	netUlSpeedDone chan struct{}
+	netDlSpeedDone chan struct{}
+	netLatencyDone chan struct{}
+	updateLock     sync.Mutex
 }
 
 type TimerPhase int
@@ -110,7 +120,7 @@ func interruptChannel() chan os.Signal {
 	return sigs
 }
 
-func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
+func NewP0dWithValues(c int, d int, u string, h string, o string, s bool) *P0d {
 	hv, _ := strconv.ParseFloat(h, 32)
 
 	cfg := Config{
@@ -124,6 +134,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 			DurationSeconds: d,
 			Concurrency:     c,
 			HttpVersion:     float32(hv),
+			SkipOsNet:       s,
 		},
 	}
 	cfg = *cfg.validate()
@@ -151,9 +162,14 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 		},
 		Config: cfg,
 		OS: OS{
-			OpenConns:      make([]OSOpenConns, 0),
-			LimitOpenFiles: ulimit,
-			MaxOpenConns:   0,
+			OpenConns:         make([]OSOpenConns, 0),
+			LimitOpenFiles:    ulimit,
+			MaxOpenConns:      0,
+			updateLock:        sync.Mutex{},
+			NetLatencyAborted: false,
+			netUlSpeedDone:    make(chan struct{}),
+			netDlSpeedDone:    make(chan struct{}),
+			netLatencyDone:    make(chan struct{}),
 		},
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
@@ -233,7 +249,7 @@ func (p *P0d) Race() {
 		p.stopLiveWriterFastLoop()
 	Drain:
 		for i := 0; i < 300; i++ {
-			if p.getOSStats().OpenConns == 0 {
+			if p.getOSOpenConns().OpenConns == 0 {
 				osStatsDone <- struct{}{}
 				break Drain
 			}
@@ -339,7 +355,7 @@ func (p *P0d) initReqAtmpts(done chan struct{}, ras chan ReqAtmpt) {
 		if !bd && p.Time.Phase < Main {
 		MainUpdate:
 			for {
-				if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
+				if p.getOSOpenConns().OpenConns >= p.Config.Exec.Concurrency {
 					p.setTimerPhase(Main)
 					break MainUpdate
 				}
@@ -598,7 +614,49 @@ func (p *P0d) initLog() {
 		ul, _ := getUlimit()
 		slog("detected local OS open file ulimit: %s", ul)
 	}
-	time.Sleep(time.Millisecond * 200)
+
+	if !p.Config.Exec.SkipOsNet {
+		if p.OS.NetLatencyAborted {
+			msg := Red(fmt.Sprintf("unable to detect internet speed"))
+			slog("%v", msg)
+		} else {
+			w := uilive.New()
+			w.RefreshInterval = time.Hour * 24 * 30
+			w.Start()
+		OSNet:
+			for {
+				select {
+				case <-p.OS.netLatencyDone:
+					msg := fmt.Sprintf("detected dl speed %s%s, ul speed %s%s, latency %s",
+						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(fmt.Sprintf("%.2f", p.OS.NetUlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(durafmt.Parse(p.OS.NetLatency).LimitFirstN(1).String()))
+					w.Write([]byte(timefmt(msg)))
+					break OSNet
+				case <-p.OS.netUlSpeedDone:
+					msg := fmt.Sprintf("detected dl speed %s%s, ul speed %s%s, detecting latency",
+						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(fmt.Sprintf("%.2f", p.OS.NetUlSpeedMBits)),
+						Yellow("MBit/s"))
+					w.Write([]byte(timefmt(msg)))
+				case <-p.OS.netDlSpeedDone:
+					msg := fmt.Sprintf("detected dl speed %s%s, detecting ul speed",
+						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+						Yellow("MBit/s"))
+					w.Write([]byte(timefmt(msg)))
+				default:
+					msg := fmt.Sprintf("detecting dl speed")
+					w.Write([]byte(timefmt(msg)))
+				}
+				w.Flush()
+				time.Sleep(time.Duration(100) * time.Millisecond)
+			}
+			w.Stop()
+		}
+	}
 
 	slog("duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
@@ -674,7 +732,7 @@ func (p *P0d) doLogLive() {
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 
 	i++
-	oss := p.getOSStats()
+	oss := p.getOSOpenConns()
 
 	connMsg := conMsg
 	if p.isTimerPhase(RampUp) {
@@ -812,6 +870,9 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
+	if !p.Config.Exec.SkipOsNet {
+		go p.getOSNetSpeed(30)
+	}
 	_, p.OS.LimitOpenFiles = getUlimit()
 	p.OS.LimitRAM = getRAMBytes()
 	go func() {
@@ -821,30 +882,60 @@ func (p *P0d) initOSStats(done chan struct{}) {
 			case <-done:
 				break OSStats
 			default:
-				p.doOSSStats()
+				p.doOSOpenConns()
 				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}()
 }
 
-var osMutex = sync.Mutex{}
+func (p *P0d) getOSNetSpeed(maxWaitSeconds int) {
+	t, e := NewOSNet()
+	if e == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		time.AfterFunc(time.Duration(maxWaitSeconds)*time.Second, func() {
+			cancel()
+			p.OS.NetLatencyAborted = true
+			t.client.CloseIdleConnections()
+		})
 
-func (p *P0d) doOSSStats() {
-	osMutex.Lock()
-	oss := NewOSStats(p.OS.PID)
+		e2 := t.Target.DownloadTestContext(ctx, true)
+		if e2 == nil {
+			p.OS.NetDlSpeedMBits = t.Target.DLSpeed
+			p.OS.netDlSpeedDone <- struct{}{}
+		}
+		e3 := t.Target.UploadTestContext(ctx, true)
+		if e3 == nil {
+			p.OS.NetUlSpeedMBits = t.Target.ULSpeed
+			p.OS.netUlSpeedDone <- struct{}{}
+		}
+		e1 := t.Target.PingTestContext(ctx)
+		if e1 == nil {
+			p.OS.NetLatency = t.Target.Latency
+			p.OS.netLatencyDone <- struct{}{}
+		}
+		t.client.CloseIdleConnections()
+	} else {
+		p.OS.NetLatencyAborted = true
+	}
+}
+
+func (p *P0d) doOSOpenConns() {
+	p.OS.updateLock.Lock()
+	oss := NewOSOpenConns(p.OS.PID)
 	oss.updateOpenConns(p.Config)
 	p.OS.OpenConns = append(p.OS.OpenConns, *oss)
 	if oss.OpenConns > p.OS.MaxOpenConns {
 		p.OS.MaxOpenConns = oss.OpenConns
 	}
-	osMutex.Unlock()
+	p.OS.updateLock.Unlock()
 }
 
-func (p *P0d) getOSStats() OSOpenConns {
+func (p *P0d) getOSOpenConns() OSOpenConns {
 	//first time this runs OSS Stats may not have been initialized
 	if len(p.OS.OpenConns) == 0 {
-		oss := *NewOSStats(os.Getpid())
+		oss := *NewOSOpenConns(os.Getpid())
 		oss.OpenConns = 0
 		return oss
 	} else {

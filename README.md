@@ -60,6 +60,8 @@ Run with config file
         time in seconds to run p0d (default 10)
   -h    
         print usage instructions
+  -s 
+        skip internet speed test, i.e. for local targets
   -v    
         print version
 ```

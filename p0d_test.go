@@ -38,7 +38,7 @@ func TestNewP0dFromFile(t *testing.T) {
 }
 
 func TestNewP0dWithValues(t *testing.T) {
-	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "")
+	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "", true)
 
 	if p.Config.Res.Code != 200 {
 		t.Error("incorrect response code")
