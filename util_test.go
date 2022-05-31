@@ -6,7 +6,7 @@ import (
 )
 
 func TestBraille(t *testing.T) {
-	b := NewBrailleAnim()
+	b := NewSpinnerAnim()
 
 	for i := 0; i < 24; i++ {
 		b.Next()

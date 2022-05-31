@@ -617,19 +617,19 @@ func (p *P0d) initLog() {
 
 	if !p.Config.Exec.SkipInetTest {
 		if p.OS.InetTestAborted {
-			msg := Red(fmt.Sprintf("unable to detect internet speed"))
+			msg := Red(fmt.Sprintf("unable to detect inet speed"))
 			slog("%v", msg)
 		} else {
 			w := uilive.New()
 			w.RefreshInterval = time.Hour * 24 * 30
 			w.Start()
-			msg := "detecting inet dl speed"
-			b := NewBrailleAnim()
+			msg := "detecting inet ▼️ speed"
+			b := NewSpinnerAnim()
 		OSNet:
 			for {
 				select {
 				case <-p.OS.inetLatencyDone:
-					msg = fmt.Sprintf("detected inet dl speed %s%s, ul speed %s%s, latency %s",
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, latency %s",
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"),
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
@@ -639,7 +639,7 @@ func (p *P0d) initLog() {
 					time.Sleep(time.Duration(100) * time.Millisecond)
 					break OSNet
 				case <-p.OS.inetUlSpeedDone:
-					msg = fmt.Sprintf("detected inet dl speed %s%s, ul speed %s%s, detecting latency",
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, detecting latency",
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"),
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
@@ -647,7 +647,7 @@ func (p *P0d) initLog() {
 					w.Write([]byte(timefmt(msg)))
 					time.Sleep(time.Duration(100) * time.Millisecond)
 				case <-p.OS.inetDlSpeedDone:
-					msg = fmt.Sprintf("detected inet dl speed %s%s, detecting ul speed",
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, detecting ▲ speed",
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"))
 					w.Write([]byte(timefmt(msg)))
