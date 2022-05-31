@@ -71,8 +71,8 @@ type OS struct {
 	OpenConns        []OSOpenConns
 	MaxOpenConns     int
 	LimitOpenFiles   int64
-	LimitRAM         uint64
-	InetLatency      time.Duration
+	LimitRAMBytes    uint64
+	InetLatencyNs    time.Duration
 	InetUlSpeedMBits float64
 	InetDlSpeedMBits float64
 	InetTestAborted  bool
@@ -578,7 +578,7 @@ func (p *P0d) initLog() {
 
 	b128k := 2 << 16
 	wantRamBytes := uint64(p.Config.Exec.Concurrency * b128k)
-	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAM)) * 100
+	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAMBytes)) * 100
 
 	var ramUsagePctPrec string
 	if ramUsagePct < 0.01 {
@@ -586,18 +586,18 @@ func (p *P0d) initLog() {
 	} else {
 		ramUsagePctPrec = "%.2f"
 	}
-	if p.OS.LimitRAM == 0 {
+	if p.OS.LimitRAMBytes == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS RAM"))
 		slog("%v", msg)
-	} else if p.OS.LimitRAM < wantRamBytes {
+	} else if p.OS.LimitRAMBytes < wantRamBytes {
 		msg := fmt.Sprintf("detected low OS RAM %s, increase to %s or reduce concurrency from %s",
-			Red(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Red(p.Config.byteCount(int64(p.OS.LimitRAMBytes))),
 			Red(p.Config.byteCount(int64(wantRamBytes))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		slog(msg)
 	} else {
 		slog("detected OS RAM: %s predicted use max %s %s",
-			Yellow(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Yellow(p.Config.byteCount(int64(p.OS.LimitRAMBytes))),
 			Yellow(p.Config.byteCount(int64(wantRamBytes))),
 			Yellow("("+fmt.Sprintf(ramUsagePctPrec, ramUsagePct)+"%)"))
 	}
@@ -634,7 +634,7 @@ func (p *P0d) initLog() {
 						Yellow("MBit/s"),
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
 						Yellow("MBit/s"),
-						Yellow(durafmt.Parse(p.OS.InetLatency).LimitFirstN(1).String()))
+						Yellow(durafmt.Parse(p.OS.InetLatencyNs).LimitFirstN(1).String()))
 					w.Write([]byte(timefmt(msg)))
 					time.Sleep(time.Duration(100) * time.Millisecond)
 					break OSNet
@@ -875,10 +875,10 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
 	if !p.Config.Exec.SkipInetTest {
-		go p.getOSNetSpeed(30)
+		go p.getOSINetSpeed(30)
 	}
 	_, p.OS.LimitOpenFiles = getUlimit()
-	p.OS.LimitRAM = getRAMBytes()
+	p.OS.LimitRAMBytes = getRAMBytes()
 	go func() {
 	OSStats:
 		for {
@@ -893,13 +893,14 @@ func (p *P0d) initOSStats(done chan struct{}) {
 	}()
 }
 
-func (p *P0d) getOSNetSpeed(maxWaitSeconds int) {
+func (p *P0d) getOSINetSpeed(maxWaitSeconds int) {
 	t, e := NewOSNet()
 	if e == nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		time.AfterFunc(time.Duration(maxWaitSeconds)*time.Second, func() {
 			cancel()
+			//TODO: this should't fire if test test just exited normally
 			p.OS.InetTestAborted = true
 			t.client.CloseIdleConnections()
 		})
@@ -916,7 +917,7 @@ func (p *P0d) getOSNetSpeed(maxWaitSeconds int) {
 		}
 		e1 := t.Target.PingTestContext(ctx)
 		if e1 == nil {
-			p.OS.InetLatency = t.Target.Latency
+			p.OS.InetLatencyNs = t.Target.Latency
 			p.OS.inetLatencyDone <- struct{}{}
 		}
 		t.client.CloseIdleConnections()
