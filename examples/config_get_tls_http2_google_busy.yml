@@ -1,10 +1,10 @@
 ---
 exec:
   mode: binary
-  durationSeconds: 30
-  dialTimeoutSeconds: 3
-  rampSeconds: 3
-  concurrency: 6
+  durationSeconds: 300
+  dialTimeoutSeconds: 30
+  rampSeconds: 30
+  concurrency: 128
   logsampling: 0.1
   httpVersion: 2
   skipInetTest: false

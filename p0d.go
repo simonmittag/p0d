@@ -662,23 +662,23 @@ func (p *P0d) initLog() {
 		}
 	}
 
-	slog("duration: %s",
+	slog("set test duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 
-	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
-	slog("network dial timeout (inc. TLS handshake): %s",
+	slog("set max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
+	slog("set network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		slog("request spacing: %s",
+		slog("set request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("set out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	slog("preferred http version: %s ",
+	slog("set preferred http version: %s ",
 		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
 	)
-	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+	fmt.Printf(timefmt("set URL %s (%s)"), Yellow(p.Config.Req.Url), Yellow(p.Config.Req.Method))
 
 	tv := ""
 	if p.ReqStats.Sample.TLSVersion == defMsg {
@@ -693,7 +693,7 @@ func (p *P0d) initLog() {
 	} else {
 		sv = p.ReqStats.Sample.Server + " "
 	}
-	slog("sampled remote conn settings: %s%s%s%s%s %s %s",
+	slog("detected remote conn settings: %s%s%s%s%s %s %s",
 		Cyan(sv),
 		Cyan(p.ReqStats.Sample.RemoteAddr),
 		Cyan("["),
@@ -703,7 +703,7 @@ func (p *P0d) initLog() {
 		Cyan(tv),
 	)
 
-	slog("%s starting engines", Cyan(p.ID))
+	slog("starting engines: %v", Cyan(p.ID))
 }
 
 var logLiveLock = sync.Mutex{}
