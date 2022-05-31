@@ -49,7 +49,7 @@ type Exec struct {
 	LogSampling        float32
 	SpacingMillis      int64
 	HttpVersion        float32
-	SkipOsNet          bool
+	SkipInetTest       bool
 }
 
 const UNLIMITED int = -1

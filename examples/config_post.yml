@@ -4,6 +4,7 @@ exec:
   rampSeconds: 3
   concurrency: 128
   logsampling: 0.01
+  skipInetTest: true
 req:
   method: POST
   url: http://localhost:60083/mse6/post

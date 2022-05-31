@@ -7,6 +7,7 @@ exec:
   concurrency: 2048
   logsampling: 0.01
   httpVersion: 1.1
+  skipInetTest: true
 req:
   method: GET
   url: http://localhost:8080/mse6/get

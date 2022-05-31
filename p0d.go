@@ -67,20 +67,20 @@ type Time struct {
 }
 
 type OS struct {
-	PID               int
-	OpenConns         []OSOpenConns
-	MaxOpenConns      int
-	LimitOpenFiles    int64
-	LimitRAM          uint64
-	NetLatency        time.Duration
-	NetUlSpeedMBits   float64
-	NetDlSpeedMBits   float64
-	NetLatencyAborted bool
+	PID              int
+	OpenConns        []OSOpenConns
+	MaxOpenConns     int
+	LimitOpenFiles   int64
+	LimitRAM         uint64
+	InetLatency      time.Duration
+	InetUlSpeedMBits float64
+	InetDlSpeedMBits float64
+	InetTestAborted  bool
 
-	netUlSpeedDone chan struct{}
-	netDlSpeedDone chan struct{}
-	netLatencyDone chan struct{}
-	updateLock     sync.Mutex
+	inetUlSpeedDone chan struct{}
+	inetDlSpeedDone chan struct{}
+	inetLatencyDone chan struct{}
+	updateLock      sync.Mutex
 }
 
 type TimerPhase int
@@ -134,7 +134,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string, s bool) *P0d {
 			DurationSeconds: d,
 			Concurrency:     c,
 			HttpVersion:     float32(hv),
-			SkipOsNet:       s,
+			SkipInetTest:    s,
 		},
 	}
 	cfg = *cfg.validate()
@@ -162,14 +162,14 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 		},
 		Config: cfg,
 		OS: OS{
-			OpenConns:         make([]OSOpenConns, 0),
-			LimitOpenFiles:    ulimit,
-			MaxOpenConns:      0,
-			updateLock:        sync.Mutex{},
-			NetLatencyAborted: false,
-			netUlSpeedDone:    make(chan struct{}),
-			netDlSpeedDone:    make(chan struct{}),
-			netLatencyDone:    make(chan struct{}),
+			OpenConns:       make([]OSOpenConns, 0),
+			LimitOpenFiles:  ulimit,
+			MaxOpenConns:    0,
+			updateLock:      sync.Mutex{},
+			InetTestAborted: false,
+			inetUlSpeedDone: make(chan struct{}),
+			inetDlSpeedDone: make(chan struct{}),
+			inetLatencyDone: make(chan struct{}),
 		},
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
@@ -615,41 +615,45 @@ func (p *P0d) initLog() {
 		slog("detected local OS open file ulimit: %s", ul)
 	}
 
-	if !p.Config.Exec.SkipOsNet {
-		if p.OS.NetLatencyAborted {
+	if !p.Config.Exec.SkipInetTest {
+		if p.OS.InetTestAborted {
 			msg := Red(fmt.Sprintf("unable to detect internet speed"))
 			slog("%v", msg)
 		} else {
 			w := uilive.New()
 			w.RefreshInterval = time.Hour * 24 * 30
 			w.Start()
+			msg := "detecting inet dl speed"
+			b := NewBrailleAnim()
 		OSNet:
 			for {
 				select {
-				case <-p.OS.netLatencyDone:
-					msg := fmt.Sprintf("detected dl speed %s%s, ul speed %s%s, latency %s",
-						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+				case <-p.OS.inetLatencyDone:
+					msg = fmt.Sprintf("detected inet dl speed %s%s, ul speed %s%s, latency %s",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"),
-						Yellow(fmt.Sprintf("%.2f", p.OS.NetUlSpeedMBits)),
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
 						Yellow("MBit/s"),
-						Yellow(durafmt.Parse(p.OS.NetLatency).LimitFirstN(1).String()))
+						Yellow(durafmt.Parse(p.OS.InetLatency).LimitFirstN(1).String()))
 					w.Write([]byte(timefmt(msg)))
+					time.Sleep(time.Duration(100) * time.Millisecond)
 					break OSNet
-				case <-p.OS.netUlSpeedDone:
-					msg := fmt.Sprintf("detected dl speed %s%s, ul speed %s%s, detecting latency",
-						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+				case <-p.OS.inetUlSpeedDone:
+					msg = fmt.Sprintf("detected inet dl speed %s%s, ul speed %s%s, detecting latency",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"),
-						Yellow(fmt.Sprintf("%.2f", p.OS.NetUlSpeedMBits)),
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
 						Yellow("MBit/s"))
 					w.Write([]byte(timefmt(msg)))
-				case <-p.OS.netDlSpeedDone:
-					msg := fmt.Sprintf("detected dl speed %s%s, detecting ul speed",
-						Yellow(fmt.Sprintf("%.2f", p.OS.NetDlSpeedMBits)),
+					time.Sleep(time.Duration(100) * time.Millisecond)
+				case <-p.OS.inetDlSpeedDone:
+					msg = fmt.Sprintf("detected inet dl speed %s%s, detecting ul speed",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"))
 					w.Write([]byte(timefmt(msg)))
+					time.Sleep(time.Duration(100) * time.Millisecond)
 				default:
-					msg := fmt.Sprintf("detecting dl speed")
-					w.Write([]byte(timefmt(msg)))
+					w.Write([]byte(timefmt(msg + b.Next())))
 				}
 				w.Flush()
 				time.Sleep(time.Duration(100) * time.Millisecond)
@@ -870,7 +874,7 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
-	if !p.Config.Exec.SkipOsNet {
+	if !p.Config.Exec.SkipInetTest {
 		go p.getOSNetSpeed(30)
 	}
 	_, p.OS.LimitOpenFiles = getUlimit()
@@ -896,28 +900,28 @@ func (p *P0d) getOSNetSpeed(maxWaitSeconds int) {
 		defer cancel()
 		time.AfterFunc(time.Duration(maxWaitSeconds)*time.Second, func() {
 			cancel()
-			p.OS.NetLatencyAborted = true
+			p.OS.InetTestAborted = true
 			t.client.CloseIdleConnections()
 		})
 
 		e2 := t.Target.DownloadTestContext(ctx, true)
 		if e2 == nil {
-			p.OS.NetDlSpeedMBits = t.Target.DLSpeed
-			p.OS.netDlSpeedDone <- struct{}{}
+			p.OS.InetDlSpeedMBits = t.Target.DLSpeed
+			p.OS.inetDlSpeedDone <- struct{}{}
 		}
 		e3 := t.Target.UploadTestContext(ctx, true)
 		if e3 == nil {
-			p.OS.NetUlSpeedMBits = t.Target.ULSpeed
-			p.OS.netUlSpeedDone <- struct{}{}
+			p.OS.InetUlSpeedMBits = t.Target.ULSpeed
+			p.OS.inetUlSpeedDone <- struct{}{}
 		}
 		e1 := t.Target.PingTestContext(ctx)
 		if e1 == nil {
-			p.OS.NetLatency = t.Target.Latency
-			p.OS.netLatencyDone <- struct{}{}
+			p.OS.InetLatency = t.Target.Latency
+			p.OS.inetLatencyDone <- struct{}{}
 		}
 		t.client.CloseIdleConnections()
 	} else {
-		p.OS.NetLatencyAborted = true
+		p.OS.InetTestAborted = true
 	}
 }
 
