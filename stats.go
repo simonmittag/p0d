@@ -92,14 +92,14 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 }
 
 type OSOpenConns struct {
-	Stamp     time.Time
+	Time      time.Time
 	OpenConns int
 	PID       int
 }
 
 func NewOSOpenConns(pid int) *OSOpenConns {
 	return &OSOpenConns{
-		Stamp:     time.Now(),
+		Time:      time.Now(),
 		OpenConns: 0,
 		PID:       pid,
 	}
