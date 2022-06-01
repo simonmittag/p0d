@@ -826,9 +826,9 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
-		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadPSec))),
 		Cyan(perSecondMsg),
-		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadSec))),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadPSec))),
 		Magenta(perSecondMsg))
 
 	i++
@@ -838,9 +838,9 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
-		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenPSec))),
 		Cyan(perSecondMsg),
-		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenSec))),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenPSec))),
 		Magenta(perSecondMsg))
 
 	i++
