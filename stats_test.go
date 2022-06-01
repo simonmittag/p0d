@@ -36,10 +36,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.SumBytesRead != 1000 {
 		t.Error("sumbytes incorrect")
 	}
-	if s.MeanBytesReadSec != 250 {
+	if s.MeanBytesReadPSec != 250 {
 		t.Error("mean bytes per sec incorrect")
 	}
-	if s.Elpsd != 4*time.Second {
+	if s.ElpsdNs != 4*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
 	if s.SumElpsdAtmptLatencyNs.Milliseconds() != 2000 {
@@ -79,10 +79,10 @@ func TestUpdateStats(t *testing.T) {
 	if s.SumBytesRead != 2000 {
 		t.Error("sumbytes incorrect")
 	}
-	if s.MeanBytesReadSec != 333 {
+	if s.MeanBytesReadPSec != 333 {
 		t.Error("mean bytes per sec incorrect")
 	}
-	if s.Elpsd != 6*time.Second {
+	if s.ElpsdNs != 6*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
 	if s.SumElpsdAtmptLatencyNs != 3*time.Second {

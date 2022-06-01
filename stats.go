@@ -31,17 +31,17 @@ func NewSample() Sample {
 
 type ReqStats struct {
 	Start                    time.Time
-	Elpsd                    time.Duration
+	ElpsdNs                  time.Duration
 	ReqAtmpts                int64
 	CurReqAtmptsPSec         int64
 	MeanReqAtmptsPSec        int64
 	MaxReqAtmptsPSec         int64
 	SumBytesRead             int64
-	MeanBytesReadSec         int
-	MaxBytesReadSec          int
+	MeanBytesReadPSec        int
+	MaxBytesReadPSec         int
 	SumBytesWritten          int64
-	MeanBytesWrittenSec      int
-	MaxBytesWrittenSec       int
+	MeanBytesWrittenPSec     int
+	MaxBytesWrittenPSec      int
 	SumElpsdAtmptLatencyNs   time.Duration
 	MeanElpsdAtmptLatencyNs  time.Duration
 	SumMatchingResponseCodes int
@@ -54,8 +54,8 @@ type ReqStats struct {
 
 func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
-	s.Elpsd = now.Sub(s.Start)
-	s.MeanReqAtmptsPSec = int64(math.Floor(float64(s.ReqAtmpts) / s.Elpsd.Seconds()))
+	s.ElpsdNs = now.Sub(s.Start)
+	s.MeanReqAtmptsPSec = int64(math.Floor(float64(s.ReqAtmpts) / s.ElpsdNs.Seconds()))
 
 	crs := atomic.AddInt64(&s.CurReqAtmptsPSec, 1)
 	if crs > s.MaxReqAtmptsPSec {
@@ -66,15 +66,15 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	})
 
 	s.SumBytesRead += atmpt.ResBytes
-	s.MeanBytesReadSec = int(math.Floor(float64(s.SumBytesRead) / s.Elpsd.Seconds()))
-	if s.MeanBytesReadSec > s.MaxBytesReadSec {
-		s.MaxBytesReadSec = s.MeanBytesReadSec
+	s.MeanBytesReadPSec = int(math.Floor(float64(s.SumBytesRead) / s.ElpsdNs.Seconds()))
+	if s.MeanBytesReadPSec > s.MaxBytesReadPSec {
+		s.MaxBytesReadPSec = s.MeanBytesReadPSec
 	}
 
 	s.SumBytesWritten += atmpt.ReqBytes
-	s.MeanBytesWrittenSec = int(math.Floor(float64(s.SumBytesWritten) / s.Elpsd.Seconds()))
-	if s.MeanBytesWrittenSec > s.MaxBytesWrittenSec {
-		s.MaxBytesWrittenSec = s.MeanBytesWrittenSec
+	s.MeanBytesWrittenPSec = int(math.Floor(float64(s.SumBytesWritten) / s.ElpsdNs.Seconds()))
+	if s.MeanBytesWrittenPSec > s.MaxBytesWrittenPSec {
+		s.MaxBytesWrittenPSec = s.MeanBytesWrittenPSec
 	}
 	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
@@ -92,30 +92,29 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 }
 
 type OSOpenConns struct {
-	Now       time.Time
+	Time      time.Time
 	OpenConns int
-	pid       int
+	PID       int
 }
 
 func NewOSOpenConns(pid int) *OSOpenConns {
 	return &OSOpenConns{
-		Now:       time.Now(),
+		Time:      time.Now(),
 		OpenConns: 0,
-		pid:       pid,
+		PID:       pid,
 	}
 }
 
 func (oss *OSOpenConns) updateOpenConns(cfg Config) {
-	//TODO: this produces a 0 when it shouldn't. after signalling CTRL+C this often returns intermittent 0
 	cs, e := procspy.Connections(true)
 	if e != nil {
 		_ = e
 	} else {
 		d := 0
 		for c := cs.Next(); c != nil; c = cs.Next() {
-			// fixes bug where pid connections to other network infra are reported as false positive, see:
+			// fixes bug where PID connections to other network infra are reported as false positive, see:
 			// https://github.com/simonmittag/p0d/issues/31
-			if c.PID == uint(oss.pid) && c.RemotePort == cfg.getRemotePort() {
+			if c.PID == uint(oss.PID) && c.RemotePort == cfg.getRemotePort() {
 				d++
 			}
 		}

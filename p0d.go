@@ -29,7 +29,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.3.0"
+const Version string = "v0.3.1"
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"
@@ -826,9 +826,9 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
-		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadSec))),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadPSec))),
 		Cyan(perSecondMsg),
-		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadSec))),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadPSec))),
 		Magenta(perSecondMsg))
 
 	i++
@@ -838,9 +838,9 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
-		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenSec))),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenPSec))),
 		Cyan(perSecondMsg),
-		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenSec))),
+		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenPSec))),
 		Magenta(perSecondMsg))
 
 	i++
@@ -989,9 +989,12 @@ func (p *P0d) doOSOpenConns() {
 	p.OS.updateLock.Lock()
 	oss := NewOSOpenConns(p.OS.PID)
 	oss.updateOpenConns(p.Config)
-	p.OS.OpenConns = append(p.OS.OpenConns, *oss)
-	if oss.OpenConns > p.OS.MaxOpenConns {
-		p.OS.MaxOpenConns = oss.OpenConns
+	//we only append this value to the array if the number of open conns has changed since last time.
+	if oss.OpenConns != p.getOSOpenConns().OpenConns {
+		p.OS.OpenConns = append(p.OS.OpenConns, *oss)
+		if oss.OpenConns > p.OS.MaxOpenConns {
+			p.OS.MaxOpenConns = oss.OpenConns
+		}
 	}
 	p.OS.updateLock.Unlock()
 }
