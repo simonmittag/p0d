@@ -7,7 +7,6 @@ exec:
   concurrency: 6
   logsampling: 0.1
   httpVersion: 2
-  skipInetTest: false
 req:
   method: GET
   url: https://www.google.com/search?q=test
