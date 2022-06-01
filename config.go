@@ -138,7 +138,10 @@ func (cfg *Config) validate() *Config {
 		if e != nil {
 			cfg.panic(e.Error())
 		}
-		_, p, _ := net.SplitHostPort(u.Host)
+		h, p, _ := net.SplitHostPort(u.Host)
+		if h == "" {
+			h = u.Host
+		}
 		if len(p) > 0 {
 			p1, e2 := strconv.Atoi(p)
 			if e2 != nil {
@@ -146,6 +149,13 @@ func (cfg *Config) validate() *Config {
 			}
 			if p1 < 0 || p1 > 65535 {
 				cfg.panic(fmt.Sprintf("valid port range is [0-65535], yours: %d", p1))
+			}
+		}
+		ips, e3 := net.LookupIP(h)
+		if e3 == nil && len(ips) > 0 {
+			if isPrivateIP(ips[0]) {
+				//we disable inet test for all local targets.
+				cfg.Exec.SkipInetTest = true
 			}
 		}
 	}
