@@ -6,15 +6,15 @@
 [![Codeclimate Test Coverage](https://api.codeclimate.com/v1/badges/06a7484f009ea48a3832/test_coverage)](https://codeclimate.com/github/simonmittag/p0d/test_coverage)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Version](https://img.shields.io/badge/version-0.3.0-orange)](https://github.com/simonmittag/p0d)
+[![Version](https://img.shields.io/badge/version-0.3.1-orange)](https://github.com/simonmittag/p0d)
 
 ## What is p0d?
 ![](p0d_80.png)
 
 p0d is a cli based HTTP performance testing tool for Linux and Darwin operating systems. Features include support
 for HTTP/1.1, HTTP/2, file attachments as multipart/form-data, and TLS. p0d provides realtime updates
-on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.3.0` was
-released 27/05/22.
+on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.3.1` was
+released 01/06/22.
 
 ## Up and running
 
@@ -44,7 +44,7 @@ Run with config file
 
 ### Cli args
 ```
-λ p0d v0.2.9
+λ p0d v0.3.1
  usage: p0d [-f flag] [URL]
 
  flags:
