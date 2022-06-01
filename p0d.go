@@ -87,6 +87,10 @@ type OS struct {
 	updateLock          sync.Mutex
 }
 
+func (o *OS) isInetTestDone() bool {
+	return o.inetDlSpeedDoneFlag && o.inetUlSpeedDoneFlag && o.inetLatencyDoneFlag
+}
+
 type TimerPhase int
 
 const (
@@ -201,6 +205,8 @@ func (p *P0d) StartTimeNow() {
 	p.ReqStats.Start = now
 }
 
+const backspace = "\x1b[%dD"
+
 func (p *P0d) Race() {
 	osStatsDone := make(chan struct{}, 2)
 	p.initOSStats(osStatsDone)
@@ -232,64 +238,72 @@ func (p *P0d) Race() {
 	//init req attempts loop
 	ras := make(chan ReqAtmpt, 65535)
 
-	//this done channel is buffered because it may be too late to signal. we don't want to block
-	initReqAtmptsDone := make(chan struct{}, 2)
-	p.initReqAtmpts(initReqAtmptsDone, ras)
+	if !p.Interrupted {
+		//this done channel is buffered because it may be too late to signal. we don't want to block
+		initReqAtmptsDone := make(chan struct{}, 2)
+		p.initReqAtmpts(initReqAtmptsDone, ras)
 
-	p.initLiveWriterFastLoop(10)
+		p.initLiveWriterFastLoop(10)
 
-	const prefix string = ""
-	const indent string = "  "
-	var comma = []byte(",\n")
-	const backspace = "\x1b[%dD"
+		const prefix string = ""
+		const indent string = "  "
+		var comma = []byte(",\n")
 
-	drain := func() {
-		//this one log event renders the progress bar at 0 seconds remaining
-		initReqAtmptsDone <- struct{}{}
-		p.doLogLive()
-		p.Time.Stop = time.Now()
-		p.setTimerPhase(Draining)
-		//we still want to watch draining but much faster.
-		p.stopReqAtmptsThreads(time.Millisecond * 1)
-		p.stopLiveWriterFastLoop()
-	Drain:
-		for i := 0; i < 300; i++ {
-			if p.getOSOpenConns().OpenConns == 0 {
-				osStatsDone <- struct{}{}
-				break Drain
-			}
-			time.Sleep(time.Millisecond * 100)
+		drain := func() {
+			//this one log event renders the progress bar at 0 seconds remaining
+			initReqAtmptsDone <- struct{}{}
 			p.doLogLive()
+			p.Time.Stop = time.Now()
+			p.setTimerPhase(Draining)
+			//we still want to watch draining but much faster.
+			p.stopReqAtmptsThreads(time.Millisecond * 1)
+			p.stopLiveWriterFastLoop()
+		Drain:
+			for i := 0; i < 300; i++ {
+				if p.getOSOpenConns().OpenConns == 0 {
+					osStatsDone <- struct{}{}
+					break Drain
+				}
+				time.Sleep(time.Millisecond * 100)
+				p.doLogLive()
+			}
+			p.setTimerPhase(Drained)
+			//do this so no cur atmpts continue to be reported and all remaining decrease timers fire
+			time.Sleep(time.Millisecond * 1010)
+			atomic.StoreInt64(&p.ReqStats.CurReqAtmptsPSec, 0)
+			p.closeLiveWritersAndSummarize()
 		}
-		p.setTimerPhase(Drained)
-		//do this so no cur atmpts continue to be reported and all remaining decrease timers fire
-		time.Sleep(time.Millisecond * 1010)
-		atomic.StoreInt64(&p.ReqStats.CurReqAtmptsPSec, 0)
-		p.closeLiveWritersAndSummarize()
-	}
-Main:
-	for {
-		select {
-		case <-p.interrupt:
-			//because CTRL+C is crazy and messes up our live log by two spaces
-			fmt.Fprintf(p.liveWriters[0], backspace, 2)
-			p.Interrupted = true
-			drain()
-			break Main
-		case <-drainer:
-			drain()
-			break Main
-		case <-rampdown:
-			p.setTimerPhase(RampDown)
-			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
-		case ra := <-ras:
-			p.ReqStats.update(ra, ra.Stop, p.Config)
-			p.outFileRequestAttempt(ra, prefix, indent, comma)
+	Main:
+		for {
+			select {
+			case <-p.interrupt:
+				//because CTRL+C is crazy and messes up our live log by two spaces
+				fmt.Fprintf(p.liveWriters[0], backspace, 2)
+				p.Interrupted = true
+				//in case of interupt we signal the inet speed test to cancel if it's still running
+				if !p.Config.Exec.SkipInetTest && !p.OS.isInetTestDone() {
+					p.OS.inetTestError <- struct{}{}
+				}
+				drain()
+				break Main
+			case <-drainer:
+				drain()
+				break Main
+			case <-rampdown:
+				p.setTimerPhase(RampDown)
+				p.stopReqAtmptsThreads(p.staggerThreadsDuration())
+			case ra := <-ras:
+				p.ReqStats.update(ra, ra.Stop, p.Config)
+				p.outFileRequestAttempt(ra, prefix, indent, comma)
+			}
 		}
 	}
 	p.setTimerPhase(Done)
 
 	osStatsDone <- struct{}{}
+	//adjust time stop for aborts
+	p.Time.Stop = time.Now()
+	p.finalizeOutFile()
 	log(Cyan("exiting").String())
 }
 
@@ -561,7 +575,9 @@ func (p *P0d) closeLiveWritersAndSummarize() {
 	p.doLogLive()
 	p.liveWriters[0].(*uilive.Writer).Stop()
 	p.logSummary()
+}
 
+func (p *P0d) finalizeOutFile() {
 	if len(p.Output) > 0 {
 		log("finalizing out file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, "", "  ")
@@ -638,6 +654,14 @@ func (p *P0d) initLog() {
 		OSNet:
 			for {
 				select {
+				case <-p.interrupt:
+					msg = unable
+					fmt.Fprintf(w, backspace, 2)
+					w.Write([]byte(timefmt(msg)))
+					w.Flush()
+					p.OS.InetTestAborted = true
+					p.Interrupted = true
+					break OSNet
 				case <-p.OS.inetTestError:
 					msg = unable
 					w.Write([]byte(timefmt(msg)))
@@ -890,7 +914,7 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
 	if !p.Config.Exec.SkipInetTest {
-		go p.getOSINetSpeed(30)
+		go p.getOSINetSpeed(18)
 	}
 	_, p.OS.LimitOpenFiles = getUlimit()
 	p.OS.LimitRAMBytes = getRAMBytes()
@@ -910,7 +934,7 @@ func (p *P0d) initOSStats(done chan struct{}) {
 
 func (p *P0d) getOSINetSpeed(maxWaitSeconds int) {
 	abort := func(target *OSNet, contextCancel func()) {
-		if !(p.OS.inetDlSpeedDoneFlag && p.OS.inetUlSpeedDoneFlag && p.OS.inetLatencyDoneFlag) {
+		if !(p.OS.isInetTestDone()) {
 			if contextCancel != nil {
 				contextCancel()
 			}
