@@ -27,6 +27,7 @@ func main() {
 	d := flag.Int("d", 10, "time in seconds to run p0d")
 	H := flag.String("H", "1.1", "http version to use. Values are 1.1 and 2 (which works only with "+
 		"TLS URLs). Defaults to 1.1")
+	s := flag.Bool("s", false, "skip internet speed test i.e. for local targets")
 	h := flag.Bool("h", false, "print usage instructions")
 	v := flag.Bool("v", false, "print version")
 	var u string
@@ -47,7 +48,7 @@ func main() {
 	var pod *p0d.P0d
 	switch mode {
 	case Cli:
-		pod = p0d.NewP0dWithValues(*c, *d, u, *H, *O)
+		pod = p0d.NewP0dWithValues(*c, *d, u, *H, *O, *s)
 		pod.Race()
 	case File:
 		pod = p0d.NewP0dFromFile(*C, *O)

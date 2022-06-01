@@ -60,6 +60,8 @@ Run with config file
         time in seconds to run p0d (default 10)
   -h    
         print usage instructions
+  -s 
+        skip internet speed test, i.e. for local targets
   -v    
         print version
 ```
@@ -73,6 +75,7 @@ exec:
   durationSeconds: 10
   concurrency: 1
   logsampling: 1
+  skipInetTest: true
 req:
   method: POST
   url: http://localhost:8080/path
@@ -107,6 +110,9 @@ supported using TLS. Http version is negotiated, not absolute and HTTP/2 may fal
 
 #### exec.logsampling
 ratio between `0.0` and `1.0` of requests to keep when saving results to disk with `-O`
+
+#### exec.skipInetTest
+skips the general internet speed test. Note this is not targetting your URL but the speedtest.net network.
 
 #### req.method
 http request method, usually one of `GET`, `PUT`, `POST`, or `DELETE`

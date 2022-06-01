@@ -96,6 +96,7 @@ func ByteCountSI(b int64) string {
 	return fmt.Sprintf("%.1f%cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
+
 func PrintLogo() (int, error) {
 	return fmt.Printf("%v",
 		Cyan("\n        .╬╠╠╠╠╠╠╠╠╠╬`").String()+Red("     ╠╠  ,╬╠     ").String()+Cyan("╙╠╠╠╠╠╠╠╠╠φ").String()+
@@ -122,4 +123,22 @@ func contains(s []string, str string) bool {
 	}
 
 	return false
+}
+
+type SpinnerAnim struct {
+	chars []string
+	index int
+}
+
+func NewSpinnerAnim() *SpinnerAnim {
+	return &SpinnerAnim{
+		chars: []string{"\\", "|", "/", "-"},
+		index: 0,
+	}
+}
+
+func (b *SpinnerAnim) Next() string {
+	c := b.chars[b.index]
+	b.index = (b.index + 1) % len(b.chars)
+	return c
 }

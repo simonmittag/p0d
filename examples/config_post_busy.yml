@@ -5,6 +5,7 @@ exec:
   concurrency: 4096
   logsampling: 0.01
   httpVersion: 1.1
+  skipInetTest: true
 req:
   method: POST
   url: http://localhost:8080/mse6/post

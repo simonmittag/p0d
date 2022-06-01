@@ -45,10 +45,7 @@ func TestEmptyConfigValidate(t *testing.T) {
 	if got.Req.Method != "GET" {
 		t.Error("invalid default req method")
 	}
-	if got.Exec.Mode != "decimal" {
-		t.Error("invalid default exec mode")
-	}
-	if got.Exec.Mode != "decimal" {
+	if got.Exec.Mode != "binary" {
 		t.Error("invalid default exec mode")
 	}
 	if got.Exec.HttpVersion != 1.1 {

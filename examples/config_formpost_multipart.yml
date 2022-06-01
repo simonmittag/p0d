@@ -3,6 +3,7 @@ exec:
   durationSeconds: 3
   rampSeconds: 1
   concurrency: 128
+  skipInetTest: true
 req:
   method: POST
   url: http://localhost:60083/mse6/formpost

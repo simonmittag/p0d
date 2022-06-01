@@ -3,14 +3,14 @@ exec:
   mode: binary
   durationSeconds: 300
   dialTimeoutSeconds: 30
-  rampSeconds: 60
-  concurrency: 2048
-  logsampling: 0.01
-  httpVersion: 1.1
-  skipInetTest: true
+  rampSeconds: 30
+  concurrency: 128
+  logsampling: 0.1
+  httpVersion: 2
+  skipInetTest: false
 req:
   method: GET
-  url: http://localhost:8080/mse6/get
+  url: https://www.google.com/search?q=test
   headers:
     - Accept-Encoding: "identity"
 res:

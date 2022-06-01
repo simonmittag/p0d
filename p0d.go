@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -66,11 +67,28 @@ type Time struct {
 }
 
 type OS struct {
-	PID            int
-	OpenConns      []OSOpenConns
-	MaxOpenConns   int
-	LimitOpenFiles int64
-	LimitRAM       uint64
+	PID              int
+	OpenConns        []OSOpenConns
+	MaxOpenConns     int
+	LimitOpenFiles   int64
+	LimitRAMBytes    uint64
+	InetLatencyNs    time.Duration
+	InetUlSpeedMBits float64
+	InetDlSpeedMBits float64
+	InetTestAborted  bool
+
+	inetUlSpeedDoneFlag bool
+	inetDlSpeedDoneFlag bool
+	inetLatencyDoneFlag bool
+	inetUlSpeedDone     chan struct{}
+	inetDlSpeedDone     chan struct{}
+	inetLatencyDone     chan struct{}
+	inetTestError       chan struct{}
+	updateLock          sync.Mutex
+}
+
+func (o *OS) isInetTestDone() bool {
+	return o.inetDlSpeedDoneFlag && o.inetUlSpeedDoneFlag && o.inetLatencyDoneFlag
 }
 
 type TimerPhase int
@@ -110,7 +128,7 @@ func interruptChannel() chan os.Signal {
 	return sigs
 }
 
-func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
+func NewP0dWithValues(c int, d int, u string, h string, o string, s bool) *P0d {
 	hv, _ := strconv.ParseFloat(h, 32)
 
 	cfg := Config{
@@ -124,6 +142,7 @@ func NewP0dWithValues(c int, d int, u string, h string, o string) *P0d {
 			DurationSeconds: d,
 			Concurrency:     c,
 			HttpVersion:     float32(hv),
+			SkipInetTest:    s,
 		},
 	}
 	cfg = *cfg.validate()
@@ -151,9 +170,15 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 		},
 		Config: cfg,
 		OS: OS{
-			OpenConns:      make([]OSOpenConns, 0),
-			LimitOpenFiles: ulimit,
-			MaxOpenConns:   0,
+			OpenConns:       make([]OSOpenConns, 0),
+			LimitOpenFiles:  ulimit,
+			MaxOpenConns:    0,
+			updateLock:      sync.Mutex{},
+			InetTestAborted: false,
+			inetUlSpeedDone: make(chan struct{}),
+			inetDlSpeedDone: make(chan struct{}),
+			inetLatencyDone: make(chan struct{}),
+			inetTestError:   make(chan struct{}),
 		},
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
@@ -179,6 +204,8 @@ func (p *P0d) StartTimeNow() {
 	p.Time.Start = now
 	p.ReqStats.Start = now
 }
+
+const backspace = "\x1b[%dD"
 
 func (p *P0d) Race() {
 	osStatsDone := make(chan struct{}, 2)
@@ -211,64 +238,72 @@ func (p *P0d) Race() {
 	//init req attempts loop
 	ras := make(chan ReqAtmpt, 65535)
 
-	//this done channel is buffered because it may be too late to signal. we don't want to block
-	initReqAtmptsDone := make(chan struct{}, 2)
-	p.initReqAtmpts(initReqAtmptsDone, ras)
+	if !p.Interrupted {
+		//this done channel is buffered because it may be too late to signal. we don't want to block
+		initReqAtmptsDone := make(chan struct{}, 2)
+		p.initReqAtmpts(initReqAtmptsDone, ras)
 
-	p.initLiveWriterFastLoop(10)
+		p.initLiveWriterFastLoop(10)
 
-	const prefix string = ""
-	const indent string = "  "
-	var comma = []byte(",\n")
-	const backspace = "\x1b[%dD"
+		const prefix string = ""
+		const indent string = "  "
+		var comma = []byte(",\n")
 
-	drain := func() {
-		//this one log event renders the progress bar at 0 seconds remaining
-		initReqAtmptsDone <- struct{}{}
-		p.doLogLive()
-		p.Time.Stop = time.Now()
-		p.setTimerPhase(Draining)
-		//we still want to watch draining but much faster.
-		p.stopReqAtmptsThreads(time.Millisecond * 1)
-		p.stopLiveWriterFastLoop()
-	Drain:
-		for i := 0; i < 300; i++ {
-			if p.getOSStats().OpenConns == 0 {
-				osStatsDone <- struct{}{}
-				break Drain
-			}
-			time.Sleep(time.Millisecond * 100)
+		drain := func() {
+			//this one log event renders the progress bar at 0 seconds remaining
+			initReqAtmptsDone <- struct{}{}
 			p.doLogLive()
+			p.Time.Stop = time.Now()
+			p.setTimerPhase(Draining)
+			//we still want to watch draining but much faster.
+			p.stopReqAtmptsThreads(time.Millisecond * 1)
+			p.stopLiveWriterFastLoop()
+		Drain:
+			for i := 0; i < 300; i++ {
+				if p.getOSOpenConns().OpenConns == 0 {
+					osStatsDone <- struct{}{}
+					break Drain
+				}
+				time.Sleep(time.Millisecond * 100)
+				p.doLogLive()
+			}
+			p.setTimerPhase(Drained)
+			//do this so no cur atmpts continue to be reported and all remaining decrease timers fire
+			time.Sleep(time.Millisecond * 1010)
+			atomic.StoreInt64(&p.ReqStats.CurReqAtmptsPSec, 0)
+			p.closeLiveWritersAndSummarize()
 		}
-		p.setTimerPhase(Drained)
-		//do this so no cur atmpts continue to be reported and all remaining decrease timers fire
-		time.Sleep(time.Millisecond * 1010)
-		atomic.StoreInt64(&p.ReqStats.CurReqAtmptsPSec, 0)
-		p.closeLiveWritersAndSummarize()
-	}
-Main:
-	for {
-		select {
-		case <-p.interrupt:
-			//because CTRL+C is crazy and messes up our live log by two spaces
-			fmt.Fprintf(p.liveWriters[0], backspace, 2)
-			p.Interrupted = true
-			drain()
-			break Main
-		case <-drainer:
-			drain()
-			break Main
-		case <-rampdown:
-			p.setTimerPhase(RampDown)
-			p.stopReqAtmptsThreads(p.staggerThreadsDuration())
-		case ra := <-ras:
-			p.ReqStats.update(ra, ra.Stop, p.Config)
-			p.outFileRequestAttempt(ra, prefix, indent, comma)
+	Main:
+		for {
+			select {
+			case <-p.interrupt:
+				//because CTRL+C is crazy and messes up our live log by two spaces
+				fmt.Fprintf(p.liveWriters[0], backspace, 2)
+				p.Interrupted = true
+				//in case of interupt we signal the inet speed test to cancel if it's still running
+				if !p.Config.Exec.SkipInetTest && !p.OS.isInetTestDone() {
+					p.OS.inetTestError <- struct{}{}
+				}
+				drain()
+				break Main
+			case <-drainer:
+				drain()
+				break Main
+			case <-rampdown:
+				p.setTimerPhase(RampDown)
+				p.stopReqAtmptsThreads(p.staggerThreadsDuration())
+			case ra := <-ras:
+				p.ReqStats.update(ra, ra.Stop, p.Config)
+				p.outFileRequestAttempt(ra, prefix, indent, comma)
+			}
 		}
 	}
 	p.setTimerPhase(Done)
 
 	osStatsDone <- struct{}{}
+	//adjust time stop for aborts
+	p.Time.Stop = time.Now()
+	p.finalizeOutFile()
 	log(Cyan("exiting").String())
 }
 
@@ -339,7 +374,7 @@ func (p *P0d) initReqAtmpts(done chan struct{}, ras chan ReqAtmpt) {
 		if !bd && p.Time.Phase < Main {
 		MainUpdate:
 			for {
-				if p.getOSStats().OpenConns >= p.Config.Exec.Concurrency {
+				if p.getOSOpenConns().OpenConns >= p.Config.Exec.Concurrency {
 					p.setTimerPhase(Main)
 					break MainUpdate
 				}
@@ -540,7 +575,9 @@ func (p *P0d) closeLiveWritersAndSummarize() {
 	p.doLogLive()
 	p.liveWriters[0].(*uilive.Writer).Stop()
 	p.logSummary()
+}
 
+func (p *P0d) finalizeOutFile() {
 	if len(p.Output) > 0 {
 		log("finalizing out file '%s'", Yellow(p.Output))
 		j, je := json.MarshalIndent(p, "", "  ")
@@ -562,7 +599,7 @@ func (p *P0d) initLog() {
 
 	b128k := 2 << 16
 	wantRamBytes := uint64(p.Config.Exec.Concurrency * b128k)
-	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAM)) * 100
+	ramUsagePct := (float32(wantRamBytes) / float32(p.OS.LimitRAMBytes)) * 100
 
 	var ramUsagePctPrec string
 	if ramUsagePct < 0.01 {
@@ -570,18 +607,18 @@ func (p *P0d) initLog() {
 	} else {
 		ramUsagePctPrec = "%.2f"
 	}
-	if p.OS.LimitRAM == 0 {
+	if p.OS.LimitRAMBytes == 0 {
 		msg := Red(fmt.Sprintf("unable to detect OS RAM"))
 		slog("%v", msg)
-	} else if p.OS.LimitRAM < wantRamBytes {
+	} else if p.OS.LimitRAMBytes < wantRamBytes {
 		msg := fmt.Sprintf("detected low OS RAM %s, increase to %s or reduce concurrency from %s",
-			Red(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Red(p.Config.byteCount(int64(p.OS.LimitRAMBytes))),
 			Red(p.Config.byteCount(int64(wantRamBytes))),
 			Red(FGroup(int64(p.Config.Exec.Concurrency))))
 		slog(msg)
 	} else {
 		slog("detected OS RAM: %s predicted use max %s %s",
-			Yellow(p.Config.byteCount(int64(p.OS.LimitRAM))),
+			Yellow(p.Config.byteCount(int64(p.OS.LimitRAMBytes))),
 			Yellow(p.Config.byteCount(int64(wantRamBytes))),
 			Yellow("("+fmt.Sprintf(ramUsagePctPrec, ramUsagePct)+"%)"))
 	}
@@ -598,25 +635,89 @@ func (p *P0d) initLog() {
 		ul, _ := getUlimit()
 		slog("detected local OS open file ulimit: %s", ul)
 	}
-	time.Sleep(time.Millisecond * 200)
 
-	slog("duration: %s",
+	if !p.Config.Exec.SkipInetTest {
+		var unable = Red(fmt.Sprintf("unable to detect inet speed")).String()
+		uidelay := func() {
+			time.Sleep(time.Duration(100) * time.Millisecond)
+		}
+
+		if p.OS.InetTestAborted {
+			msg := unable
+			slog("%v", msg)
+		} else {
+			w := uilive.New()
+			w.RefreshInterval = time.Hour * 24 * 30
+			w.Start()
+			msg := "detecting inet ▼️ speed"
+			b := NewSpinnerAnim()
+		OSNet:
+			for {
+				select {
+				case <-p.interrupt:
+					msg = unable
+					fmt.Fprintf(w, backspace, 2)
+					w.Write([]byte(timefmt(msg)))
+					w.Flush()
+					p.OS.InetTestAborted = true
+					p.Interrupted = true
+					break OSNet
+				case <-p.OS.inetTestError:
+					msg = unable
+					w.Write([]byte(timefmt(msg)))
+					uidelay()
+					break OSNet
+				case <-p.OS.inetLatencyDone:
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, latency %s",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(durafmt.Parse(p.OS.InetLatencyNs).LimitFirstN(1).String()))
+					w.Write([]byte(timefmt(msg)))
+					uidelay()
+					break OSNet
+				case <-p.OS.inetUlSpeedDone:
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, detecting latency",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
+						Yellow("MBit/s"),
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
+						Yellow("MBit/s"))
+					w.Write([]byte(timefmt(msg)))
+					uidelay()
+				case <-p.OS.inetDlSpeedDone:
+					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, detecting ▲ speed",
+						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
+						Yellow("MBit/s"))
+					w.Write([]byte(timefmt(msg)))
+					uidelay()
+				default:
+					w.Write([]byte(timefmt(msg + b.Next())))
+				}
+				w.Flush()
+				uidelay()
+			}
+			w.Stop()
+		}
+	}
+
+	slog("set test duration: %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DurationSeconds)*time.Second).LimitFirstN(2).String()))
 
-	slog("max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
-	slog("network dial timeout (inc. TLS handshake): %s",
+	slog("set max concurrent TCP conn(s): %s", Yellow(FGroup(int64(p.Config.Exec.Concurrency))))
+	slog("set network dial timeout (inc. TLS handshake): %s",
 		Yellow(durafmt.Parse(time.Duration(p.Config.Exec.DialTimeoutSeconds)*time.Second).LimitFirstN(2).String()))
 	if p.Config.Exec.SpacingMillis > 0 {
-		slog("request spacing: %s",
+		slog("set request spacing: %s",
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		slog("out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("set out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
 	}
-	slog("preferred http version: %s ",
+	slog("set preferred http version: %s ",
 		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
 	)
-	fmt.Printf(timefmt("%s %s"), Yellow(p.Config.Req.Method), Yellow(p.Config.Req.Url))
+	fmt.Printf(timefmt("set URL %s (%s)"), Yellow(p.Config.Req.Url), Yellow(p.Config.Req.Method))
 
 	tv := ""
 	if p.ReqStats.Sample.TLSVersion == defMsg {
@@ -631,7 +732,7 @@ func (p *P0d) initLog() {
 	} else {
 		sv = p.ReqStats.Sample.Server + " "
 	}
-	slog("sampled remote conn settings: %s%s%s%s%s %s %s",
+	slog("detected remote conn settings: %s%s%s%s%s %s %s",
 		Cyan(sv),
 		Cyan(p.ReqStats.Sample.RemoteAddr),
 		Cyan("["),
@@ -641,7 +742,7 @@ func (p *P0d) initLog() {
 		Cyan(tv),
 	)
 
-	slog("%s starting engines", Cyan(p.ID))
+	slog("starting engines: %v", Cyan(p.ID))
 }
 
 var logLiveLock = sync.Mutex{}
@@ -674,7 +775,7 @@ func (p *P0d) doLogLive() {
 	fmt.Fprintf(lw[i], timefmt("%s"), p.bar.render(elpsd, p))
 
 	i++
-	oss := p.getOSStats()
+	oss := p.getOSOpenConns()
 
 	connMsg := conMsg
 	if p.isTimerPhase(RampUp) {
@@ -812,8 +913,11 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
+	if !p.Config.Exec.SkipInetTest {
+		go p.getOSINetSpeed(18)
+	}
 	_, p.OS.LimitOpenFiles = getUlimit()
-	p.OS.LimitRAM = getRAMBytes()
+	p.OS.LimitRAMBytes = getRAMBytes()
 	go func() {
 	OSStats:
 		for {
@@ -821,30 +925,81 @@ func (p *P0d) initOSStats(done chan struct{}) {
 			case <-done:
 				break OSStats
 			default:
-				p.doOSSStats()
+				p.doOSOpenConns()
 				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}()
 }
 
-var osMutex = sync.Mutex{}
+func (p *P0d) getOSINetSpeed(maxWaitSeconds int) {
+	abort := func(target *OSNet, contextCancel func()) {
+		if !(p.OS.isInetTestDone()) {
+			if contextCancel != nil {
+				contextCancel()
+			}
+			p.OS.InetTestAborted = true
+			p.OS.inetTestError <- struct{}{}
+			if target.client != nil {
+				target.client.CloseIdleConnections()
+			}
+		}
+	}
 
-func (p *P0d) doOSSStats() {
-	osMutex.Lock()
-	oss := NewOSStats(p.OS.PID)
+	osn, e := NewOSNet()
+	if e == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		time.AfterFunc(time.Duration(maxWaitSeconds)*time.Second, func() {
+			abort(osn, cancel)
+		})
+
+		e2 := osn.Target.DownloadTestContext(ctx, true)
+		if e2 == nil {
+			p.OS.InetDlSpeedMBits = osn.Target.DLSpeed
+			p.OS.inetDlSpeedDoneFlag = true
+			p.OS.inetDlSpeedDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
+		}
+		e3 := osn.Target.UploadTestContext(ctx, true)
+		if e3 == nil {
+			p.OS.InetUlSpeedMBits = osn.Target.ULSpeed
+			p.OS.inetUlSpeedDoneFlag = true
+			p.OS.inetUlSpeedDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
+		}
+		e1 := osn.Target.PingTestContext(ctx)
+		if e1 == nil {
+			p.OS.InetLatencyNs = osn.Target.Latency
+			p.OS.inetLatencyDoneFlag = true
+			p.OS.inetLatencyDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
+		}
+		osn.client.CloseIdleConnections()
+	} else {
+		abort(osn, nil)
+	}
+}
+
+func (p *P0d) doOSOpenConns() {
+	p.OS.updateLock.Lock()
+	oss := NewOSOpenConns(p.OS.PID)
 	oss.updateOpenConns(p.Config)
 	p.OS.OpenConns = append(p.OS.OpenConns, *oss)
 	if oss.OpenConns > p.OS.MaxOpenConns {
 		p.OS.MaxOpenConns = oss.OpenConns
 	}
-	osMutex.Unlock()
+	p.OS.updateLock.Unlock()
 }
 
-func (p *P0d) getOSStats() OSOpenConns {
+func (p *P0d) getOSOpenConns() OSOpenConns {
 	//first time this runs OSS Stats may not have been initialized
 	if len(p.OS.OpenConns) == 0 {
-		oss := *NewOSStats(os.Getpid())
+		oss := *NewOSOpenConns(os.Getpid())
 		oss.OpenConns = 0
 		return oss
 	} else {

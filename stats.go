@@ -1,8 +1,10 @@
 package p0d
 
 import (
+	"github.com/showwin/speedtest-go/speedtest"
 	"github.com/simonmittag/procspy"
 	"math"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -95,7 +97,7 @@ type OSOpenConns struct {
 	pid       int
 }
 
-func NewOSStats(pid int) *OSOpenConns {
+func NewOSOpenConns(pid int) *OSOpenConns {
 	return &OSOpenConns{
 		Now:       time.Now(),
 		OpenConns: 0,
@@ -119,4 +121,35 @@ func (oss *OSOpenConns) updateOpenConns(cfg Config) {
 		}
 		oss.OpenConns = d
 	}
+}
+
+type OSNet struct {
+	Target *speedtest.Server
+	client *http.Client
+}
+
+func NewOSNet() (*OSNet, error) {
+	closeIdler := &http.Client{}
+	spdt := speedtest.New(speedtest.WithDoer(closeIdler))
+	user, e1 := spdt.FetchUserInfo()
+	if e1 != nil {
+		return nil, e1
+	}
+	servers, e2 := spdt.FetchServers(user)
+	if e2 != nil {
+		return nil, e2
+	}
+	closeIdler.CloseIdleConnections()
+
+	targets, e3 := servers.FindServer([]int{})
+	if len(targets) == 0 || e3 != nil {
+		return nil, e3
+	}
+	user = nil
+	servers = nil
+
+	return &OSNet{
+		Target: targets[0],
+		client: closeIdler,
+	}, nil
 }
