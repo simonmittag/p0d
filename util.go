@@ -132,7 +132,7 @@ type SpinnerAnim struct {
 
 func NewSpinnerAnim() *SpinnerAnim {
 	return &SpinnerAnim{
-		chars: []string{"/", "-", "\\", "|"},
+		chars: []string{"\\", "|", "/", "-"},
 		index: 0,
 	}
 }

@@ -77,10 +77,14 @@ type OS struct {
 	InetDlSpeedMBits float64
 	InetTestAborted  bool
 
-	inetUlSpeedDone chan struct{}
-	inetDlSpeedDone chan struct{}
-	inetLatencyDone chan struct{}
-	updateLock      sync.Mutex
+	inetUlSpeedDoneFlag bool
+	inetDlSpeedDoneFlag bool
+	inetLatencyDoneFlag bool
+	inetUlSpeedDone     chan struct{}
+	inetDlSpeedDone     chan struct{}
+	inetLatencyDone     chan struct{}
+	inetTestError       chan struct{}
+	updateLock          sync.Mutex
 }
 
 type TimerPhase int
@@ -170,6 +174,7 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 			inetUlSpeedDone: make(chan struct{}),
 			inetDlSpeedDone: make(chan struct{}),
 			inetLatencyDone: make(chan struct{}),
+			inetTestError:   make(chan struct{}),
 		},
 		ReqStats: &ReqStats{
 			ErrorTypes: make(map[string]int),
@@ -616,8 +621,13 @@ func (p *P0d) initLog() {
 	}
 
 	if !p.Config.Exec.SkipInetTest {
+		var unable = Red(fmt.Sprintf("unable to detect inet speed")).String()
+		uidelay := func() {
+			time.Sleep(time.Duration(100) * time.Millisecond)
+		}
+
 		if p.OS.InetTestAborted {
-			msg := Red(fmt.Sprintf("unable to detect inet speed"))
+			msg := unable
 			slog("%v", msg)
 		} else {
 			w := uilive.New()
@@ -628,6 +638,11 @@ func (p *P0d) initLog() {
 		OSNet:
 			for {
 				select {
+				case <-p.OS.inetTestError:
+					msg = unable
+					w.Write([]byte(timefmt(msg)))
+					uidelay()
+					break OSNet
 				case <-p.OS.inetLatencyDone:
 					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, latency %s",
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
@@ -636,7 +651,7 @@ func (p *P0d) initLog() {
 						Yellow("MBit/s"),
 						Yellow(durafmt.Parse(p.OS.InetLatencyNs).LimitFirstN(1).String()))
 					w.Write([]byte(timefmt(msg)))
-					time.Sleep(time.Duration(100) * time.Millisecond)
+					uidelay()
 					break OSNet
 				case <-p.OS.inetUlSpeedDone:
 					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, ▲ speed %s%s, detecting latency",
@@ -645,18 +660,18 @@ func (p *P0d) initLog() {
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetUlSpeedMBits)),
 						Yellow("MBit/s"))
 					w.Write([]byte(timefmt(msg)))
-					time.Sleep(time.Duration(100) * time.Millisecond)
+					uidelay()
 				case <-p.OS.inetDlSpeedDone:
 					msg = fmt.Sprintf("detected inet ▼️ speed %s%s, detecting ▲ speed",
 						Yellow(fmt.Sprintf("%.2f", p.OS.InetDlSpeedMBits)),
 						Yellow("MBit/s"))
 					w.Write([]byte(timefmt(msg)))
-					time.Sleep(time.Duration(100) * time.Millisecond)
+					uidelay()
 				default:
 					w.Write([]byte(timefmt(msg + b.Next())))
 				}
 				w.Flush()
-				time.Sleep(time.Duration(100) * time.Millisecond)
+				uidelay()
 			}
 			w.Stop()
 		}
@@ -894,35 +909,55 @@ func (p *P0d) initOSStats(done chan struct{}) {
 }
 
 func (p *P0d) getOSINetSpeed(maxWaitSeconds int) {
-	t, e := NewOSNet()
+	abort := func(target *OSNet, contextCancel func()) {
+		if !(p.OS.inetDlSpeedDoneFlag && p.OS.inetUlSpeedDoneFlag && p.OS.inetLatencyDoneFlag) {
+			if contextCancel != nil {
+				contextCancel()
+			}
+			p.OS.InetTestAborted = true
+			p.OS.inetTestError <- struct{}{}
+			if target.client != nil {
+				target.client.CloseIdleConnections()
+			}
+		}
+	}
+
+	osn, e := NewOSNet()
 	if e == nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
 		time.AfterFunc(time.Duration(maxWaitSeconds)*time.Second, func() {
-			cancel()
-			//TODO: this should't fire if test test just exited normally
-			p.OS.InetTestAborted = true
-			t.client.CloseIdleConnections()
+			abort(osn, cancel)
 		})
 
-		e2 := t.Target.DownloadTestContext(ctx, true)
+		e2 := osn.Target.DownloadTestContext(ctx, true)
 		if e2 == nil {
-			p.OS.InetDlSpeedMBits = t.Target.DLSpeed
+			p.OS.InetDlSpeedMBits = osn.Target.DLSpeed
+			p.OS.inetDlSpeedDoneFlag = true
 			p.OS.inetDlSpeedDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
 		}
-		e3 := t.Target.UploadTestContext(ctx, true)
+		e3 := osn.Target.UploadTestContext(ctx, true)
 		if e3 == nil {
-			p.OS.InetUlSpeedMBits = t.Target.ULSpeed
+			p.OS.InetUlSpeedMBits = osn.Target.ULSpeed
+			p.OS.inetUlSpeedDoneFlag = true
 			p.OS.inetUlSpeedDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
 		}
-		e1 := t.Target.PingTestContext(ctx)
+		e1 := osn.Target.PingTestContext(ctx)
 		if e1 == nil {
-			p.OS.InetLatencyNs = t.Target.Latency
+			p.OS.InetLatencyNs = osn.Target.Latency
+			p.OS.inetLatencyDoneFlag = true
 			p.OS.inetLatencyDone <- struct{}{}
+		} else {
+			abort(osn, cancel)
 		}
-		t.client.CloseIdleConnections()
+		osn.client.CloseIdleConnections()
 	} else {
-		p.OS.InetTestAborted = true
+		abort(osn, nil)
 	}
 }
 
