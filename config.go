@@ -120,9 +120,9 @@ func (cfg *Config) validate() *Config {
 			cfg.panic(fmt.Sprintf("bad http version %s, must be one of [1.1, 2.0], exiting...", hv))
 		}
 	}
-	if cfg.Exec.LogSampling <= 0 || cfg.Exec.LogSampling > 1 {
-		//default to all
-		cfg.Exec.LogSampling = 1
+	if cfg.Exec.LogSampling < 0 || cfg.Exec.LogSampling > 1 {
+		//default to none
+		cfg.Exec.LogSampling = 0
 	}
 	if cfg.Exec.SpacingMillis < 0 {
 		//default to all
