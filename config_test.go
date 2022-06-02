@@ -60,7 +60,7 @@ func TestEmptyConfigValidate(t *testing.T) {
 	if got.Exec.RampSeconds != 1 {
 		t.Error("invalid default ramp seconds")
 	}
-	if got.Exec.LogSampling != 1 {
+	if got.Exec.LogSampling != 0 {
 		t.Error("invalid default logsampling")
 	}
 	if got.Exec.SpacingMillis != 0 {
