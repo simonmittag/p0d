@@ -712,7 +712,8 @@ func (p *P0d) initLog() {
 			Yellow(durafmt.Parse(time.Duration(p.Config.Exec.SpacingMillis)*time.Millisecond).LimitFirstN(2).String()))
 	}
 	if len(p.Output) > 0 {
-		slog("set out file sampling rate: %s%s", Yellow(FGroup(int64(100*p.Config.Exec.LogSampling))), Yellow("%"))
+		slog("set out file sampling rate: %s",
+			Yellow(strconv.FormatFloat(float64(p.Config.Exec.LogSampling), 'f', -1, 64)))
 	}
 	slog("set preferred http version: %s ",
 		Yellow(fmt.Sprintf("%.1f", p.Config.Exec.HttpVersion)),
@@ -900,7 +901,7 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 	if len(p.Output) > 0 {
 		rand.Seed(time.Now().UnixNano())
 		//only sample a subset of requests
-		if rand.Float32() < p.Config.Exec.LogSampling {
+		if rand.Float64() < p.Config.Exec.LogSampling {
 			j, je := json.MarshalIndent(ra, prefix, indent)
 			p.outFileCheckWrite(je)
 			_, we := p.outFile.Write(j)

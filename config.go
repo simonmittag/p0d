@@ -46,7 +46,7 @@ type Exec struct {
 	RampSeconds        int
 	Concurrency        int
 	DialTimeoutSeconds int64
-	LogSampling        float32
+	LogSampling        float64
 	SpacingMillis      int64
 	HttpVersion        float32
 	SkipInetTest       bool
