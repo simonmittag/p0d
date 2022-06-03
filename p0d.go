@@ -819,7 +819,11 @@ func (p *P0d) doLogLive() {
 	i++
 
 	convertToMs := func(q *tdigest.TDigest, v float64) string {
-		c := time.Duration(int64(q.Quantile(v)))
+		qv := q.Quantile(v)
+		if math.IsNaN(qv) {
+			qv = 0
+		}
+		c := time.Duration(int64(qv))
 		if c.Milliseconds() == 0 {
 			return FGroup(c.Microseconds()) + "μs"
 		} else {
@@ -929,7 +933,7 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
 	if !p.Config.Exec.SkipInetTest {
-		go p.getOSINetSpeed(18)
+		go p.getOSINetSpeed(30)
 	}
 	_, p.OS.LimitOpenFiles = getUlimit()
 	p.OS.LimitRAMBytes = getRAMBytes()
