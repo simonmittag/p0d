@@ -181,8 +181,9 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 			inetTestError:   make(chan struct{}),
 		},
 		ReqStats: &ReqStats{
-			ErrorTypes: make(map[string]int),
-			Sample:     NewSample(),
+			ErrorTypes:                   make(map[string]int),
+			Sample:                       NewSample(),
+			ElpsdAtmptLatencyNsQuantiles: NewQuantileWithCompression(500),
 		},
 		Output:      outputFile,
 		Interrupted: false,
@@ -757,7 +758,7 @@ var drained = Cyan(" (drained)").String()
 
 const httpReqSMsg = "HTTP req: %s"
 const roundtripThroughputMsg = "roundtrip throughput: %s%s mean: %s%s max: %s%s"
-const meanRoundTripLatency = "roundtrip latency mean: %s%s"
+const pctRoundTripLatency = "roundtrip latency pct10: %s pct50: %s pct90: %s pct99: %s"
 const bytesReadMsg = "bytes read: %s"
 const readthroughputMsg = "read throughput mean: %s%s max: %s%s"
 const perSecondMsg = "/s"
@@ -816,9 +817,25 @@ func (p *P0d) doLogLive() {
 
 	i++
 
-	fmt.Fprintf(lw[i], timefmt(meanRoundTripLatency),
-		Cyan(FGroup(int64(p.ReqStats.MeanElpsdAtmptLatencyNs.Milliseconds()))),
-		Cyan("ms"))
+	convertToMs := func(q *Quantile, v float64) string {
+		qv := q.Quantile(v)
+		if math.IsNaN(qv) {
+			qv = 0
+		}
+		c := time.Duration(int64(qv))
+		if c.Milliseconds() == 0 {
+			return FGroup(c.Microseconds()) + "μs"
+		} else {
+			return FGroup(c.Milliseconds()) + "ms"
+		}
+	}
+
+	fmt.Fprintf(lw[i], timefmt(pctRoundTripLatency),
+		Cyan(convertToMs(p.ReqStats.ElpsdAtmptLatencyNsQuantiles, 0.1)),
+		Cyan(convertToMs(p.ReqStats.ElpsdAtmptLatencyNsQuantiles, 0.5)),
+		Cyan(convertToMs(p.ReqStats.ElpsdAtmptLatencyNsQuantiles, 0.9)),
+		Cyan(convertToMs(p.ReqStats.ElpsdAtmptLatencyNsQuantiles, 0.99)),
+	)
 
 	i++
 	fmt.Fprintf(lw[i], timefmt(bytesReadMsg),
@@ -915,7 +932,7 @@ func (p *P0d) outFileRequestAttempt(ra ReqAtmpt, prefix string, indent string, c
 func (p *P0d) initOSStats(done chan struct{}) {
 	p.OS.PID = os.Getpid()
 	if !p.Config.Exec.SkipInetTest {
-		go p.getOSINetSpeed(18)
+		go p.getOSINetSpeed(30)
 	}
 	_, p.OS.LimitOpenFiles = getUlimit()
 	p.OS.LimitRAMBytes = getRAMBytes()

@@ -1,8 +1,10 @@
 package p0d
 
 import (
+	"encoding/json"
 	"github.com/showwin/speedtest-go/speedtest"
 	"github.com/simonmittag/procspy"
+	"github.com/spenczar/tdigest"
 	"math"
 	"net/http"
 	"sync/atomic"
@@ -30,31 +32,71 @@ func NewSample() Sample {
 }
 
 type ReqStats struct {
-	Start                    time.Time
-	ElpsdNs                  time.Duration
-	ReqAtmpts                int64
-	CurReqAtmptsPSec         int64
-	MeanReqAtmptsPSec        int64
-	MaxReqAtmptsPSec         int64
-	SumBytesRead             int64
-	MeanBytesReadPSec        int
-	MaxBytesReadPSec         int
-	SumBytesWritten          int64
-	MeanBytesWrittenPSec     int
-	MaxBytesWrittenPSec      int
-	SumElpsdAtmptLatencyNs   time.Duration
-	MeanElpsdAtmptLatencyNs  time.Duration
-	SumMatchingResponseCodes int
-	PctMatchingResponseCodes float32
-	Sample                   Sample
-	SumErrors                int
-	PctErrors                float32
-	ErrorTypes               map[string]int
+	Start                        time.Time
+	ElpsdNs                      time.Duration
+	ReqAtmpts                    int64
+	CurReqAtmptsPSec             int64
+	MeanReqAtmptsPSec            int64
+	MaxReqAtmptsPSec             int64
+	SumBytesRead                 int64
+	MeanBytesReadPSec            int
+	MaxBytesReadPSec             int
+	SumBytesWritten              int64
+	MeanBytesWrittenPSec         int
+	MaxBytesWrittenPSec          int
+	ElpsdAtmptLatencyNsQuantiles *Quantile
+	SumElpsdAtmptLatencyNs       time.Duration
+	MeanElpsdAtmptLatencyNs      time.Duration
+	SumMatchingResponseCodes     int
+	PctMatchingResponseCodes     float32
+	Sample                       Sample
+	SumErrors                    int
+	PctErrors                    float32
+	ErrorTypes                   map[string]int
+}
+
+type Quantile struct {
+	t *tdigest.TDigest
+}
+
+func NewQuantile() *Quantile {
+	return &Quantile{
+		t: tdigest.New(),
+	}
+}
+
+func NewQuantileWithCompression(compression float64) *Quantile {
+	return &Quantile{
+		t: tdigest.NewWithCompression(compression),
+	}
+}
+
+func (q *Quantile) Add(val float64, weight int) *Quantile {
+	q.t.Add(val, weight)
+	return q
+}
+
+func (q *Quantile) Quantile(v float64) float64 {
+	return q.t.Quantile(v)
+}
+
+func (q *Quantile) MarshalJSON() ([]byte, error) {
+	m := make(map[string]int64)
+	m["min"] = int64(math.Ceil(q.t.Quantile(0)))
+	m["p10"] = int64(math.Ceil(q.t.Quantile(0.1)))
+	m["p25"] = int64(math.Ceil(q.t.Quantile(0.25)))
+	m["p50"] = int64(math.Ceil(q.t.Quantile(0.50)))
+	m["p75"] = int64(math.Ceil(q.t.Quantile(0.75)))
+	m["p90"] = int64(math.Ceil(q.t.Quantile(0.90)))
+	m["p99"] = int64(math.Ceil(q.t.Quantile(0.99)))
+	m["max"] = int64(math.Ceil(q.t.Quantile(1)))
+	return json.Marshal(m)
 }
 
 func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.ElpsdNs = now.Sub(s.Start)
+
 	s.MeanReqAtmptsPSec = int64(math.Floor(float64(s.ReqAtmpts) / s.ElpsdNs.Seconds()))
 
 	crs := atomic.AddInt64(&s.CurReqAtmptsPSec, 1)
@@ -78,6 +120,7 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	}
 	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
+	s.ElpsdAtmptLatencyNsQuantiles.Add(float64(atmpt.ElpsdNs.Nanoseconds()), 1)
 
 	if atmpt.ResCode == cfg.Res.Code {
 		s.SumMatchingResponseCodes++
