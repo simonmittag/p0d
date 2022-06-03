@@ -36,9 +36,6 @@ func TestUpdateStats(t *testing.T) {
 		t.Error("request attempts per second incorrect")
 	}
 
-	if s.SumBytesRead != 1000 {
-		t.Error("sumbytesread incorrect")
-	}
 	if s.CurBytesReadPSec != 1000 {
 		t.Error("curbytesreadpsec incorrect")
 	}
@@ -62,6 +59,9 @@ func TestUpdateStats(t *testing.T) {
 		t.Error("curbyteswrittenpsec incorrect")
 	}
 
+	if s.SumBytesRead != 1000 {
+		t.Error("sumbytesread incorrect")
+	}
 	if s.MeanBytesReadPSec != 250 {
 		t.Error("mean bytes read per sec incorrect")
 	}
@@ -72,7 +72,6 @@ func TestUpdateStats(t *testing.T) {
 	if s.SumBytesWritten != 4000 {
 		t.Error("sumbyteswritten incorrect")
 	}
-
 	if s.MeanBytesWrittenPSec != 1000 {
 		t.Error("mean bytes written per sec incorrect")
 	}
