@@ -183,7 +183,7 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 		ReqStats: &ReqStats{
 			ErrorTypes:                   make(map[string]int),
 			Sample:                       NewSample(),
-			ElpsdAtmptLatencyNsQuantiles: NewQuantile(),
+			ElpsdAtmptLatencyNsQuantiles: NewQuantileWithCompression(500),
 		},
 		Output:      outputFile,
 		Interrupted: false,

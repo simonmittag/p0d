@@ -65,7 +65,7 @@ func NewQuantile() *Quantile {
 	}
 }
 
-func NewWithCompression(compression float64) *Quantile {
+func NewQuantileWithCompression(compression float64) *Quantile {
 	return &Quantile{
 		t: tdigest.NewWithCompression(compression),
 	}
