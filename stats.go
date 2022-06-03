@@ -3,6 +3,7 @@ package p0d
 import (
 	"github.com/showwin/speedtest-go/speedtest"
 	"github.com/simonmittag/procspy"
+	"github.com/spenczar/tdigest"
 	"math"
 	"net/http"
 	"sync/atomic"
@@ -30,31 +31,33 @@ func NewSample() Sample {
 }
 
 type ReqStats struct {
-	Start                    time.Time
-	ElpsdNs                  time.Duration
-	ReqAtmpts                int64
-	CurReqAtmptsPSec         int64
-	MeanReqAtmptsPSec        int64
-	MaxReqAtmptsPSec         int64
-	SumBytesRead             int64
-	MeanBytesReadPSec        int
-	MaxBytesReadPSec         int
-	SumBytesWritten          int64
-	MeanBytesWrittenPSec     int
-	MaxBytesWrittenPSec      int
-	SumElpsdAtmptLatencyNs   time.Duration
-	MeanElpsdAtmptLatencyNs  time.Duration
-	SumMatchingResponseCodes int
-	PctMatchingResponseCodes float32
-	Sample                   Sample
-	SumErrors                int
-	PctErrors                float32
-	ErrorTypes               map[string]int
+	Start                        time.Time
+	ElpsdNs                      time.Duration
+	ReqAtmpts                    int64
+	CurReqAtmptsPSec             int64
+	MeanReqAtmptsPSec            int64
+	MaxReqAtmptsPSec             int64
+	SumBytesRead                 int64
+	MeanBytesReadPSec            int
+	MaxBytesReadPSec             int
+	SumBytesWritten              int64
+	MeanBytesWrittenPSec         int
+	MaxBytesWrittenPSec          int
+	ElpsdAtmptLatencyNsQuantiles *tdigest.TDigest
+	SumElpsdAtmptLatencyNs       time.Duration
+	MeanElpsdAtmptLatencyNs      time.Duration
+	SumMatchingResponseCodes     int
+	PctMatchingResponseCodes     float32
+	Sample                       Sample
+	SumErrors                    int
+	PctErrors                    float32
+	ErrorTypes                   map[string]int
 }
 
 func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	s.ReqAtmpts++
 	s.ElpsdNs = now.Sub(s.Start)
+
 	s.MeanReqAtmptsPSec = int64(math.Floor(float64(s.ReqAtmpts) / s.ElpsdNs.Seconds()))
 
 	crs := atomic.AddInt64(&s.CurReqAtmptsPSec, 1)
@@ -78,6 +81,7 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	}
 	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
 	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
+	s.ElpsdAtmptLatencyNsQuantiles.Add(float64(atmpt.ElpsdNs.Nanoseconds()), 1)
 
 	if atmpt.ResCode == cfg.Res.Code {
 		s.SumMatchingResponseCodes++

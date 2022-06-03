@@ -16,9 +16,11 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15 // indirect
+	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/showwin/speedtest-go v1.1.5 // indirect
+	github.com/spenczar/tdigest v2.1.0+incompatible // indirect
 	github.com/weaveworks/procspy v0.0.0-20150706124340-cb970aa190c3 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
