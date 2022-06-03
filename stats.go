@@ -38,12 +38,14 @@ type ReqStats struct {
 	CurReqAtmptsPSec             int64
 	MeanReqAtmptsPSec            int64
 	MaxReqAtmptsPSec             int64
+	CurBytesReadPSec             int64
 	SumBytesRead                 int64
-	MeanBytesReadPSec            int
-	MaxBytesReadPSec             int
+	MeanBytesReadPSec            int64
+	MaxBytesReadPSec             int64
+	CurBytesWrittenPSec          int64
 	SumBytesWritten              int64
-	MeanBytesWrittenPSec         int
-	MaxBytesWrittenPSec          int
+	MeanBytesWrittenPSec         int64
+	MaxBytesWrittenPSec          int64
 	ElpsdAtmptLatencyNsQuantiles *Quantile
 	SumElpsdAtmptLatencyNs       time.Duration
 	MeanElpsdAtmptLatencyNs      time.Duration
@@ -107,14 +109,30 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 		atomic.AddInt64(&s.CurReqAtmptsPSec, -1)
 	})
 
+	crbs := atomic.AddInt64(&s.CurBytesReadPSec, atmpt.ResBytes)
+	if crbs > s.MaxBytesReadPSec {
+		s.MaxBytesReadPSec = crbs
+	}
+	time.AfterFunc(time.Second*1, func() {
+		atomic.AddInt64(&s.CurBytesReadPSec, -atmpt.ResBytes)
+	})
+
 	s.SumBytesRead += atmpt.ResBytes
-	s.MeanBytesReadPSec = int(math.Floor(float64(s.SumBytesRead) / s.ElpsdNs.Seconds()))
+	s.MeanBytesReadPSec = int64(math.Floor(float64(s.SumBytesRead) / s.ElpsdNs.Seconds()))
 	if s.MeanBytesReadPSec > s.MaxBytesReadPSec {
 		s.MaxBytesReadPSec = s.MeanBytesReadPSec
 	}
 
+	cwbs := atomic.AddInt64(&s.CurBytesWrittenPSec, atmpt.ReqBytes)
+	if cwbs > s.MaxBytesWrittenPSec {
+		s.MaxBytesWrittenPSec = cwbs
+	}
+	time.AfterFunc(time.Second*1, func() {
+		atomic.AddInt64(&s.CurBytesWrittenPSec, -atmpt.ReqBytes)
+	})
+
 	s.SumBytesWritten += atmpt.ReqBytes
-	s.MeanBytesWrittenPSec = int(math.Floor(float64(s.SumBytesWritten) / s.ElpsdNs.Seconds()))
+	s.MeanBytesWrittenPSec = int64(math.Floor(float64(s.SumBytesWritten) / s.ElpsdNs.Seconds()))
 	if s.MeanBytesWrittenPSec > s.MaxBytesWrittenPSec {
 		s.MaxBytesWrittenPSec = s.MeanBytesWrittenPSec
 	}

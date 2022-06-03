@@ -21,6 +21,7 @@ func TestUpdateStats(t *testing.T) {
 		Stop:     time.Date(2000, 1, 1, 0, 0, 3, 0, time.UTC),
 		ElpsdNs:  time.Duration(2 * time.Second),
 		ResCode:  200,
+		ReqBytes: 4000,
 		ResBytes: 1000,
 		ResErr:   "",
 	}
@@ -34,12 +35,50 @@ func TestUpdateStats(t *testing.T) {
 	if s.MeanReqAtmptsPSec != 3 {
 		t.Error("request attempts per second incorrect")
 	}
+
+	if s.CurBytesReadPSec != 1000 {
+		t.Error("curbytesreadpsec incorrect")
+	}
+	if s.CurBytesWrittenPSec != 4000 {
+		t.Error("curbyteswrittenpsec incorrect")
+	}
+
+	time.Sleep(time.Millisecond * 500)
+	if s.CurBytesReadPSec != 1000 {
+		t.Error("curbytesreadpsec incorrect")
+	}
+	if s.CurBytesWrittenPSec != 4000 {
+		t.Error("curbyteswrittenpsec incorrect")
+	}
+
+	time.Sleep(time.Millisecond * 510)
+	if s.CurBytesReadPSec != 0 {
+		t.Error("curbytesreadpsec incorrect")
+	}
+	if s.CurBytesWrittenPSec != 0 {
+		t.Error("curbyteswrittenpsec incorrect")
+	}
+
 	if s.SumBytesRead != 1000 {
-		t.Error("sumbytes incorrect")
+		t.Error("sumbytesread incorrect")
 	}
 	if s.MeanBytesReadPSec != 250 {
-		t.Error("mean bytes per sec incorrect")
+		t.Error("mean bytes read per sec incorrect")
 	}
+	if s.MaxBytesReadPSec != 1000 {
+		t.Error("max bytes read per sec incorrect")
+	}
+
+	if s.SumBytesWritten != 4000 {
+		t.Error("sumbyteswritten incorrect")
+	}
+	if s.MeanBytesWrittenPSec != 1000 {
+		t.Error("mean bytes written per sec incorrect")
+	}
+	if s.MaxBytesWrittenPSec != 4000 {
+		t.Error("max bytes written per sec incorrect")
+	}
+
 	if s.ElpsdNs != 4*time.Second {
 		t.Error("status elapsed time incorrect")
 	}

@@ -244,7 +244,7 @@ func (p *P0d) Race() {
 		initReqAtmptsDone := make(chan struct{}, 2)
 		p.initReqAtmpts(initReqAtmptsDone, ras)
 
-		p.initLiveWriterFastLoop(10)
+		p.initLiveWriterFastLoop(8)
 
 		const prefix string = ""
 		const indent string = "  "
@@ -759,14 +759,12 @@ var drained = Cyan(" (drained)").String()
 const httpReqSMsg = "HTTP req: %s"
 const roundtripThroughputMsg = "roundtrip throughput: %s%s mean: %s%s max: %s%s"
 const pctRoundTripLatency = "roundtrip latency pct10: %s pct50: %s pct90: %s pct99: %s"
-const bytesReadMsg = "bytes read: %s"
-const readthroughputMsg = "read throughput mean: %s%s max: %s%s"
-const perSecondMsg = "/s"
-const bytesWrittenMsg = "bytes written: %s"
-const writeThroughputMsg = "write throughput mean: %s%s max: %s%s"
+const readthroughputMsg = "read throughput: %s%s mean: %s%s max: %s%s sum: %s"
+const writeThroughputMsg = "write throughput: %s%s mean: %s%s max: %s%s sum: %s"
 const matchingResponseCodesMsg = "matching HTTP response codes: %v"
 const transportErrorsMsg = "transport errors: %v"
 const maxMsg = " max: "
+const perSecondMsg = "/s"
 
 func (p *P0d) doLogLive() {
 	logLiveLock.Lock()
@@ -838,28 +836,24 @@ func (p *P0d) doLogLive() {
 	)
 
 	i++
-	fmt.Fprintf(lw[i], timefmt(bytesReadMsg),
-		Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
-
-	i++
-
 	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.CurBytesReadPSec))),
+		Cyan(perSecondMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadPSec))),
 		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadPSec))),
-		Magenta(perSecondMsg))
+		Magenta(perSecondMsg),
+		Cyan(p.Config.byteCount(p.ReqStats.SumBytesRead)))
 
 	i++
-
-	fmt.Fprintf(lw[i], timefmt(bytesWrittenMsg),
-		Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
-	i++
-
 	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.CurBytesWrittenPSec))),
+		Cyan(perSecondMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenPSec))),
 		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenPSec))),
-		Magenta(perSecondMsg))
+		Magenta(perSecondMsg),
+		Cyan(p.Config.byteCount(p.ReqStats.SumBytesWritten)))
 
 	i++
 	mrc := Cyan(fmt.Sprintf("%s (%s%%)",

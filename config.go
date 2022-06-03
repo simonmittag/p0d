@@ -344,13 +344,14 @@ func (cfg Config) scaffoldHttpClientWith(max int, connSpy bool, pod *P0d) *http.
 }
 
 func (cfg Config) byteCount(b int64) string {
+	f := "%2s"
 	switch strings.TrimSpace(cfg.Exec.Mode) {
 	case "decimal":
-		return ByteCountSI(b)
+		return fmt.Sprintf(f, ByteCountSI(b))
 	case "binary":
-		return ByteCountIEC(b)
+		return fmt.Sprintf(f, ByteCountIEC(b))
 	default:
-		return ByteCountIEC(b)
+		return fmt.Sprintf(f, ByteCountIEC(b))
 	}
 }
 

@@ -73,7 +73,7 @@ func FGroup(n int64) string {
 func ByteCountIEC(b int64) string {
 	const unit = 1024
 	if b < unit {
-		return fmt.Sprintf("%d B", b)
+		return fmt.Sprintf("%dB", b)
 	}
 	div, exp := int64(unit), 0
 	for n := b / unit; n >= unit; n /= unit {
