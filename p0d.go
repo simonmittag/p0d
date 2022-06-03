@@ -760,10 +760,10 @@ const httpReqSMsg = "HTTP req: %s"
 const roundtripThroughputMsg = "roundtrip throughput: %s%s mean: %s%s max: %s%s"
 const pctRoundTripLatency = "roundtrip latency pct10: %s pct50: %s pct90: %s pct99: %s"
 const bytesReadMsg = "bytes read: %s"
-const readthroughputMsg = "read throughput mean: %s%s max: %s%s"
+const readthroughputMsg = "read throughput: %s%s mean: %s%s max: %s%s"
 const perSecondMsg = "/s"
 const bytesWrittenMsg = "bytes written: %s"
-const writeThroughputMsg = "write throughput mean: %s%s max: %s%s"
+const writeThroughputMsg = "write throughput: %s%s mean: %s%s max: %s%s"
 const matchingResponseCodesMsg = "matching HTTP response codes: %v"
 const transportErrorsMsg = "transport errors: %v"
 const maxMsg = " max: "
@@ -844,6 +844,8 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(readthroughputMsg),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.CurBytesReadPSec))),
+		Cyan(perSecondMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesReadPSec))),
 		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesReadPSec))),
@@ -856,6 +858,8 @@ func (p *P0d) doLogLive() {
 	i++
 
 	fmt.Fprintf(lw[i], timefmt(writeThroughputMsg),
+		Cyan(p.Config.byteCount(int64(p.ReqStats.CurBytesWrittenPSec))),
+		Cyan(perSecondMsg),
 		Cyan(p.Config.byteCount(int64(p.ReqStats.MeanBytesWrittenPSec))),
 		Cyan(perSecondMsg),
 		Magenta(p.Config.byteCount(int64(p.ReqStats.MaxBytesWrittenPSec))),
