@@ -10,9 +10,10 @@ func TestUpdateStats(t *testing.T) {
 	cfg := Config{Res: Res{Code: 200}}
 
 	s := ReqStats{
-		ReqAtmpts:  11,
-		Start:      time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
-		ErrorTypes: make(map[string]int),
+		ReqAtmpts:                    11,
+		Start:                        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+		ErrorTypes:                   make(map[string]int),
+		ElpsdAtmptLatencyNsQuantiles: NewQuantile(),
 	}
 
 	g := ReqAtmpt{
