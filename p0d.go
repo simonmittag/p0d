@@ -10,7 +10,6 @@ import (
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
 	. "github.com/logrusorgru/aurora"
-	"github.com/spenczar/tdigest"
 	"io"
 	"io/ioutil"
 	"math"
@@ -184,7 +183,7 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 		ReqStats: &ReqStats{
 			ErrorTypes:                   make(map[string]int),
 			Sample:                       NewSample(),
-			ElpsdAtmptLatencyNsQuantiles: tdigest.New(),
+			ElpsdAtmptLatencyNsQuantiles: NewQuantile(),
 		},
 		Output:      outputFile,
 		Interrupted: false,
@@ -818,7 +817,7 @@ func (p *P0d) doLogLive() {
 
 	i++
 
-	convertToMs := func(q *tdigest.TDigest, v float64) string {
+	convertToMs := func(q *Quantile, v float64) string {
 		qv := q.Quantile(v)
 		if math.IsNaN(qv) {
 			qv = 0
