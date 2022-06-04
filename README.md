@@ -6,21 +6,28 @@
 [![Codeclimate Test Coverage](https://api.codeclimate.com/v1/badges/06a7484f009ea48a3832/test_coverage)](https://codeclimate.com/github/simonmittag/p0d/test_coverage)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Version](https://img.shields.io/badge/version-0.3.3-orange)](https://github.com/simonmittag/p0d)
+[![Version](https://img.shields.io/badge/version-0.3.4-orange)](https://github.com/simonmittag/p0d)
 
 ## What is p0d?
 ![](p0d_80.png)
 
 p0d is a cli based HTTP performance testing tool for Linux and Darwin operating systems. Features include support
 for HTTP/1.1, HTTP/2, file attachments as multipart/form-data, and TLS. p0d provides realtime updates
-on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.3.3` was
+on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.3.4` was
 released 04/06/22.
 
 ## Up and running
 
+### Homebrew
+```bash
+brew tap simonmittag/cli && 
+  brew install p0d
+```
+
 ### Golang
 ```bash
-go install github.com/simonmittag/p0d/cmd/p0d@latest && p0d -h
+git clone https://github.com/simonmittag/p0d && cd p0d &&
+  go install github.com/simonmittag/p0d/cmd/p0d
 ```
 
 ## Usage Samples
