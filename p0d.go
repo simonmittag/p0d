@@ -433,9 +433,11 @@ ReqAtmpt:
 		//report on errors
 		if e != nil {
 			em := N
-			for ek, ev := range connectionErrors {
+		Mapping:
+			for ek, ev := range errorMapping {
 				if strings.Contains(e.Error(), ek) {
 					em = ev
+					break Mapping
 				}
 			}
 			if em == N {

@@ -6,12 +6,21 @@ const closed string = "use of closed network connection"
 const eof string = "EOF"
 const broken string = "broken pipe"
 const dialtimeout string = "i/o timeout"
+const buffer string = "no buffer space available"
 
-var connectionErrors = map[string]string{
-	refused:     "connection refused while dialling",
-	reset:       reset,
-	closed:      closed,
-	eof:         "EOF while reading response",
-	broken:      "use of broken pipe",
-	dialtimeout: "i/o timeout while dialling",
+const read string = "read"
+const write string = "write"
+const connection string = "connection"
+
+var errorMapping = map[string]string{
+	read:        read,
+	write:       write,
+	connection:  connection,
+	refused:     connection,
+	reset:       connection,
+	closed:      connection,
+	eof:         read,
+	broken:      connection,
+	dialtimeout: connection,
+	buffer:      read,
 }
