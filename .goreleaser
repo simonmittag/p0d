@@ -1,5 +1,6 @@
 builds:
   - binary: p0d
+    main: cmd/p0d/main.go
     goos:
       - darwin
       - linux
