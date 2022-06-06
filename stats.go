@@ -89,6 +89,10 @@ func (w *Welford) VarPop() float64 {
 	return w.s.VariancePopulation()
 }
 
+func (w *Welford) Cv() float64 {
+	return w.s.StandardDeviation() / w.s.Mean()
+}
+
 func (w *Welford) Stderr() float64 {
 	return w.s.StandardDeviation() / math.Sqrt(float64(w.s.NumDataValues()))
 }
@@ -97,6 +101,7 @@ func (w *Welford) MarshalJSON() ([]byte, error) {
 	m := make(map[string]float64)
 	m["mean"] = w.Mean()
 	m["stddev"] = w.Stddev()
+	m["cv"] = w.Cv()
 	m["stderr"] = w.Stderr()
 	return json.Marshal(m)
 }
