@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/axiomhq/variance"
 	"github.com/google/uuid"
 	"github.com/gosuri/uilive"
 	"github.com/hako/durafmt"
@@ -184,6 +185,7 @@ func NewP0d(cfg Config, ulimit int64, outputFile string, durationSecs int, inter
 			ErrorTypes:                   make(map[string]int),
 			Sample:                       NewSample(),
 			ElpsdAtmptLatencyNsQuantiles: NewQuantileWithCompression(500),
+			ElpsdAtmptLatencyNs:          &Welford{s: variance.New()},
 		},
 		Output:      outputFile,
 		Interrupted: false,
