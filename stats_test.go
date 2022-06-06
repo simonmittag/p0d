@@ -2,6 +2,8 @@ package p0d
 
 import (
 	"fmt"
+	"github.com/axiomhq/variance"
+	"math"
 	"testing"
 	"time"
 )
@@ -14,6 +16,7 @@ func TestUpdateStats(t *testing.T) {
 		Start:                        time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 		ErrorTypes:                   make(map[string]int),
 		ElpsdAtmptLatencyNsQuantiles: NewQuantile(),
+		ElpsdAtmptLatencyNs:          &Welford{s: variance.New()},
 	}
 
 	g := ReqAtmpt{
@@ -82,10 +85,8 @@ func TestUpdateStats(t *testing.T) {
 	if s.ElpsdNs != 4*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmptLatencyNs.Milliseconds() != 2000 {
-		t.Error("sum of elapsed time for attempts incorrect")
-	}
-	if s.MeanElpsdAtmptLatencyNs.Milliseconds() != 166 {
+	//this test result looks off but is right. we only ran update() once
+	if time.Duration(s.ElpsdAtmptLatencyNs.Mean()).Milliseconds() != 2000 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
@@ -125,10 +126,8 @@ func TestUpdateStats(t *testing.T) {
 	if s.ElpsdNs != 6*time.Second {
 		t.Error("status elapsed time incorrect")
 	}
-	if s.SumElpsdAtmptLatencyNs != 3*time.Second {
-		t.Error("sum of elapsed time for attempts incorrect")
-	}
-	if s.MeanElpsdAtmptLatencyNs.Milliseconds() != 230 {
+	//this looks off again but is correct. 200
+	if time.Duration(s.ElpsdAtmptLatencyNs.Mean()).Milliseconds() != 1500 {
 		t.Error("mean of elapsed time for attempts incorrect")
 	}
 	if s.SumMatchingResponseCodes != 1 {
@@ -148,6 +147,33 @@ func TestUpdateStats(t *testing.T) {
 func TestUpdateOSStats(t *testing.T) {
 	oss := NewOSOpenConns(1)
 	oss.updateOpenConns(Config{Exec: Exec{Concurrency: 3}})
+}
+
+func TestOnlineVariance(t *testing.T) {
+	floatThresh := 0.00000001
+	vals := []float64{56, 65, 74, 75, 76, 77, 80, 81, 91}
+	w := NewWelford()
+	for _, v := range vals {
+		w.Add(v)
+	}
+	wantVariancePop := float64(784. / 9.)
+	if wantVariancePop-w.VarPop() > floatThresh {
+		t.Errorf("incorrect pop variance, want %f, got %f", wantVariancePop, w.VarPop())
+	}
+	wantStddevPop := math.Sqrt(wantVariancePop)
+	if wantStddevPop-w.StddevPop() > floatThresh {
+		t.Errorf("incorrect pop stddev, want %f, got %f", wantStddevPop, w.StddevPop())
+	}
+	wantVariance := float64(784. / 8.)
+	if wantVariance-w.Var() > floatThresh {
+		t.Errorf("incorrect variance, want %f, got %f", wantVariance, w.Var())
+	}
+	wantStddev := math.Sqrt(wantVariance)
+	if wantStddev-w.Stddev() > floatThresh {
+		t.Errorf("incorrect stddev, want %f, got %f", wantStddev, w.Stddev())
+	}
+	t.Logf("stderr: %v", w.Stderr())
+
 }
 
 func BenchmarkUpdateOpenConns(b *testing.B) {

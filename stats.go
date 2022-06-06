@@ -2,6 +2,7 @@ package p0d
 
 import (
 	"encoding/json"
+	"github.com/axiomhq/variance"
 	"github.com/showwin/speedtest-go/speedtest"
 	"github.com/simonmittag/procspy"
 	"github.com/spenczar/tdigest"
@@ -47,14 +48,57 @@ type ReqStats struct {
 	MeanBytesWrittenPSec         int64
 	MaxBytesWrittenPSec          int64
 	ElpsdAtmptLatencyNsQuantiles *Quantile
-	SumElpsdAtmptLatencyNs       time.Duration
-	MeanElpsdAtmptLatencyNs      time.Duration
+	ElpsdAtmptLatencyNs          *Welford
 	SumMatchingResponseCodes     int
 	PctMatchingResponseCodes     float32
 	Sample                       Sample
 	SumErrors                    int
 	PctErrors                    float32
 	ErrorTypes                   map[string]int
+}
+
+type Welford struct {
+	s *variance.Stats
+}
+
+func NewWelford() *Welford {
+	return &Welford{s: variance.New()}
+}
+
+func (w *Welford) Add(val float64) {
+	w.s.Add(val)
+}
+
+func (w *Welford) Mean() float64 {
+	return w.s.Mean()
+}
+
+func (w *Welford) Stddev() float64 {
+	return w.s.StandardDeviation()
+}
+
+func (w *Welford) StddevPop() float64 {
+	return w.s.StandardDeviationPopulation()
+}
+
+func (w *Welford) Var() float64 {
+	return w.s.Variance()
+}
+
+func (w *Welford) VarPop() float64 {
+	return w.s.VariancePopulation()
+}
+
+func (w *Welford) Stderr() float64 {
+	return w.s.StandardDeviation() / math.Sqrt(float64(w.s.NumDataValues()))
+}
+
+func (w *Welford) MarshalJSON() ([]byte, error) {
+	m := make(map[string]float64)
+	m["mean"] = w.Mean()
+	m["stddev"] = w.Stddev()
+	m["stderr"] = w.Stderr()
+	return json.Marshal(m)
 }
 
 type Quantile struct {
@@ -86,9 +130,11 @@ func (q *Quantile) MarshalJSON() ([]byte, error) {
 	m := make(map[string]int64)
 	m["min"] = int64(math.Ceil(q.t.Quantile(0)))
 	m["p10"] = int64(math.Ceil(q.t.Quantile(0.1)))
+	m["p16"] = int64(math.Ceil(q.t.Quantile(0.16)))
 	m["p25"] = int64(math.Ceil(q.t.Quantile(0.25)))
 	m["p50"] = int64(math.Ceil(q.t.Quantile(0.50)))
 	m["p75"] = int64(math.Ceil(q.t.Quantile(0.75)))
+	m["p84"] = int64(math.Ceil(q.t.Quantile(0.84)))
 	m["p90"] = int64(math.Ceil(q.t.Quantile(0.90)))
 	m["p99"] = int64(math.Ceil(q.t.Quantile(0.99)))
 	m["max"] = int64(math.Ceil(q.t.Quantile(1)))
@@ -136,8 +182,7 @@ func (s *ReqStats) update(atmpt ReqAtmpt, now time.Time, cfg Config) {
 	if s.MeanBytesWrittenPSec > s.MaxBytesWrittenPSec {
 		s.MaxBytesWrittenPSec = s.MeanBytesWrittenPSec
 	}
-	s.SumElpsdAtmptLatencyNs += atmpt.ElpsdNs
-	s.MeanElpsdAtmptLatencyNs = s.SumElpsdAtmptLatencyNs / time.Duration(s.ReqAtmpts)
+	s.ElpsdAtmptLatencyNs.Add(float64(atmpt.ElpsdNs))
 	s.ElpsdAtmptLatencyNsQuantiles.Add(float64(atmpt.ElpsdNs.Nanoseconds()), 1)
 
 	if atmpt.ResCode == cfg.Res.Code {
