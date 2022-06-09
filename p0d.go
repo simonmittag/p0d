@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.3.7"
+const Version string = "v0.3.8"
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"
@@ -350,6 +350,8 @@ func (p *P0d) detectRemoteConnSettings() {
 			p.sampleConn.Close()
 		}
 	}
+	c.CloseIdleConnections()
+	c = nil
 }
 
 func (p *P0d) initReqAtmpts(done chan struct{}, ras chan ReqAtmpt) {
