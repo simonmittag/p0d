@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const Version string = "v0.3.6"
+const Version string = "v0.3.7"
 const ua = "User-Agent"
 const N = ""
 const ct = "Content-Type"

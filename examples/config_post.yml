@@ -7,7 +7,7 @@ exec:
   skipInetTest: true
 req:
   method: POST
-  url: http://localhost:60083/mse6/post
+  url: http://localhost:8080/mse6/post
   headers:
     - Accept-Encoding: "identity"
     - Content-Type: "application/json"
