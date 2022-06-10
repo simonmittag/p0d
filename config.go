@@ -34,6 +34,7 @@ type Req struct {
 	Body          string
 	FormData      []map[string]string
 	FormDataFiles map[string][]byte
+	Ips           []net.IP
 }
 
 type Res struct {
@@ -151,9 +152,16 @@ func (cfg *Config) validate() *Config {
 				cfg.panic(fmt.Sprintf("valid port range is [0-65535], yours: %d", p1))
 			}
 		}
-		ips, e3 := net.LookupIP(h)
-		if e3 == nil && len(ips) > 0 {
-			if isPrivateIP(ips[0]) {
+
+		cfg.Req.Ips = make([]net.IP, 1)
+		cfg.Req.Ips[0] = net.ParseIP(h)
+
+		var e3 error
+		if cfg.Req.Ips[0] == nil {
+			cfg.Req.Ips, e3 = net.LookupIP(h)
+		}
+		if e3 == nil && len(cfg.Req.Ips) > 0 {
+			if isPrivateIP(cfg.Req.Ips[0]) {
 				//we disable inet test for all local targets.
 				cfg.Exec.SkipInetTest = true
 			}

@@ -225,8 +225,13 @@ func (oss *OSOpenConns) updateOpenConns(cfg Config) {
 		for c := cs.Next(); c != nil; c = cs.Next() {
 			// fixes bug where PID connections to other network infra are reported as false positive, see:
 			// https://github.com/simonmittag/p0d/issues/31
-			if c.PID == uint(oss.PID) && c.RemotePort == cfg.getRemotePort() {
-				d++
+			if c.PID == uint(oss.PID) {
+				for _, ip := range cfg.Req.Ips {
+					if c.RemotePort == cfg.getRemotePort() &&
+						ip.Equal(c.RemoteAddress) {
+						d++
+					}
+				}
 			}
 		}
 		oss.OpenConns = d
