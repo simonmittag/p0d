@@ -632,8 +632,6 @@ github.com/showwin/speedtest-go v1.1.5/go.mod h1:dJugxvC/AQDt4HQQKZ9lKNa2+b1c8nz
 github.com/shurcooL/go v0.0.0-20180423040247-9e1955d9fb6e/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
 github.com/shurcooL/go-goon v0.0.0-20170922171312-37c2f522c041/go.mod h1:N5mDOmsrJOB+vfqUK+7DmDyjhSLIIBnXo9lvZJj3MWQ=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
-github.com/simonmittag/procspy v0.0.3 h1:N7pfTmZYTafwtSnRnFMYr5Xib8CMMD9KawMfy7RxVlk=
-github.com/simonmittag/procspy v0.0.3/go.mod h1:l0JM9lRYlCWSks6n2bR8LoSXsv4E6a5jUk/tAthhTgg=
 github.com/simonmittag/procspy v0.0.4 h1:Y/sXePLWVJUxodCNLtYsMjmUnBcBSZ6BakED0CvkOAw=
 github.com/simonmittag/procspy v0.0.4/go.mod h1:l0JM9lRYlCWSks6n2bR8LoSXsv4E6a5jUk/tAthhTgg=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
