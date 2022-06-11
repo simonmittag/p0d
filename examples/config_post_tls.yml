@@ -1,6 +1,6 @@
 ---
 exec:
-  durationSeconds: 30
+  durationSeconds: 300
   rampSeconds: 3
   concurrency: 128
   logsampling: 0.01
