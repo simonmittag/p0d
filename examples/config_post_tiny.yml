@@ -2,7 +2,7 @@
 exec:
   durationSeconds: 300
   rampSeconds: 3
-  concurrency: 128
+  concurrency: 12
   logsampling: 0.01
   skipInetTest: true
 req:

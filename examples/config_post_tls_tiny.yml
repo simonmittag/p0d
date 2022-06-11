@@ -2,12 +2,12 @@
 exec:
   durationSeconds: 300
   rampSeconds: 3
-  concurrency: 128
+  concurrency: 12
   logsampling: 0.01
   skipInetTest: true
 req:
   method: POST
-  url: http://localhost:8080/mse6/post
+  url: https://localhost:8443/mse6/post
   headers:
     - Accept-Encoding: "identity"
     - Content-Type: "application/json"
