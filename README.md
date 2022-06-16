@@ -82,6 +82,7 @@ exec:
   durationSeconds: 10
   concurrency: 1
   logsampling: 1
+  spacingMillis: 10
   skipInetTest: true
 req:
   method: POST
@@ -116,7 +117,7 @@ preferred http version. Allowable values are `1.1`. and `2`. Defaults to `1.1`. 
 supported using TLS. Http version is negotiated, not absolute and HTTP/2 may fall back to HTTP/1.1
 
 #### exec.logsampling
-ratio between `0.0` and `1.0` of requests to keep when saving results to disk with `-O`
+ratio between `0.0` and `1.0` of requests to keep when saving results to disk with `-O` Defaults to 0
 
 #### exec.skipInetTest
 skips the general internet speed test. Note this is not targetting your URL but the speedtest.net network.
