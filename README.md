@@ -11,7 +11,7 @@
 ## What is p0d?
 ![](p0d_80.png)
 
-p0d is a cli based HTTP performance testing tool for Linux and Darwin operating systems. Features include support
+p0d is a cli based speed and HTTP performance testing tool for Linux and Darwin operating systems. Features include support
 for HTTP/1.1, HTTP/2, file attachments as multipart/form-data, and TLS. p0d provides realtime updates
 on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.4.0` was
 released 12/04/23.
