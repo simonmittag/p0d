@@ -54,12 +54,9 @@ func main() {
 		pod = p0d.NewP0dFromFile(*C, *O)
 		pod.Race()
 	case Usage:
-		p0d.PrintLogo()
-		p0d.PrintVersion()
-		fmt.Print("\nusage: p0d [-f flag] [URL]\n\n flags:\n")
-		flag.PrintDefaults()
+		printUsage()
 	case Version:
-		p0d.PrintVersion()
+		printVersion()
 	}
 
 	if mode == Cli || mode == File {
@@ -67,4 +64,15 @@ func main() {
 			os.Exit(-1)
 		}
 	}
+}
+
+func printVersion() {
+	p0d.PrintVersion()
+}
+
+func printUsage() {
+	p0d.PrintLogo()
+	p0d.PrintVersion()
+	fmt.Print("\nusage: p0d [-f flag] [URL]\n\n flags:\n")
+	flag.PrintDefaults()
 }
