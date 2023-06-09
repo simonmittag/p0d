@@ -37,6 +37,38 @@ func TestNewP0dFromFile(t *testing.T) {
 	}
 }
 
+func TestOSIsInetTestDone(t *testing.T) {
+	os1 := OS{
+
+		inetUlSpeedDoneFlag: false,
+		inetDlSpeedDoneFlag: false,
+		inetLatencyDoneFlag: false,
+	}
+	if os1.isInetTestDone() {
+		t.Error("inet test not done")
+	}
+
+	os2 := OS{
+
+		inetUlSpeedDoneFlag: false,
+		inetDlSpeedDoneFlag: true,
+		inetLatencyDoneFlag: false,
+	}
+	if os2.isInetTestDone() {
+		t.Error("inet test not done")
+	}
+
+	os3 := OS{
+
+		inetUlSpeedDoneFlag: true,
+		inetDlSpeedDoneFlag: true,
+		inetLatencyDoneFlag: true,
+	}
+	if !os3.isInetTestDone() {
+		t.Error("inet test should be done")
+	}
+}
+
 func TestNewP0dWithValues(t *testing.T) {
 	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "", true)
 
@@ -269,3 +301,36 @@ func TestStaggerThreadsDuration(t *testing.T) {
 		t.Error("invalid stagger period")
 	}
 }
+
+func TestScaffoldMultiPartRequest(t *testing.T) {
+	p := P0d{
+		Config: Config{
+			Req: Req{
+				ContentType: multipartFormdata,
+				FormData:    []map[string]string{{"k": "v"}},
+			},
+		},
+	}
+	p.scaffoldHttpReq()
+
+	p2 := P0d{
+		Config: Config{
+			Req: Req{
+				ContentType: applicationXWWWFormUrlEncoded,
+				FormData:    []map[string]string{{"k": "v"}},
+			},
+		},
+	}
+	p2.scaffoldHttpReq()
+}
+
+func TestInitLogWithOSInetTestAborted(t *testing.T) {
+	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "", true)
+	p.Config.Exec.SkipInetTest = true
+	p.initLog()
+}
+
+//func TestGetOSINetSpeed(t *testing.T) {
+//	p := NewP0dWithValues(7, 6, "http://localhost/", "1.1", "", true)
+//	p.getOSINetSpeed(20)
+//}
