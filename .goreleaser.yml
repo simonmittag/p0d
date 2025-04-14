@@ -16,13 +16,12 @@ builds:
 
 release:
   github:
-    prerelease: auto
+    owner: simonmittag
+    name: p0d
 
 universal_binaries:
   - id: p0d
     replace: true
-    builds:
-      - p0d
 
 checksum:
   name_template: 'checksums.txt'
@@ -30,7 +29,7 @@ checksum:
 brews:
   - name: p0d
     homepage: https://github.com/simonmittag/p0d
-    tap:
+    repository:
       owner: simonmittag
       name: homebrew-cli
     commit_author:
