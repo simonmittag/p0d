@@ -1,6 +1,6 @@
 module github.com/simonmittag/p0d
 
-go 1.20
+go 1.24
 
 require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
@@ -12,7 +12,7 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/showwin/speedtest-go v1.1.5
-	github.com/simonmittag/procspy v0.0.5
+	github.com/simonmittag/procspy v0.0.8
 	github.com/spenczar/tdigest v2.1.0+incompatible
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 )
