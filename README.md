@@ -2,8 +2,8 @@
 
 p0d is a cli based speed and HTTP performance testing tool for Linux and Darwin operating systems. Features include support
 for HTTP/1.1, HTTP/2, file attachments as multipart/form-data, and TLS. p0d provides realtime updates
-on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.4.0` was
-released 12/04/23.
+on stdout, including errors within test runs. p0d is beta grade software under active development, `v0.4.1` was
+released 14/04/25.
 
 [![Circleci Builds](https://circleci.com/gh/simonmittag/p0d.svg?style=shield)](https://circleci.com/gh/simonmittag/p0d)
 [![Github Issues](https://img.shields.io/github/issues/simonmittag/p0d)](https://github.com/simonmittag/p0d/issues)
@@ -50,7 +50,7 @@ Run with config file
 
 ### Cli args
 ```
-λ p0d v0.3.9
+λ p0d v0.4.1
  usage: p0d [-f flag] [URL]
 
  flags:
