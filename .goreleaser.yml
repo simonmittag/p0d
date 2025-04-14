@@ -1,6 +1,10 @@
+# .goreleaser.yaml (v2)
+version: '2'
+
 builds:
-  - binary: p0d
-    main: cmd/p0d/main.go
+  - id: p0d
+    binary: p0d
+    main: ./cmd/p0d/main.go
     goos:
       - darwin
       - linux
@@ -11,21 +15,24 @@ builds:
       - CGO_ENABLED=0
 
 release:
-  prerelease: auto
+  github:
+    prerelease: auto
 
 universal_binaries:
-  - replace: true
+  - id: p0d
+    replace: true
+    builds:
+      - p0d
+
+checksum:
+  name_template: 'checksums.txt'
 
 brews:
-  -
-    name: p0d
-    homepage: "https://github.com/simonmittag/p0d"
+  - name: p0d
+    homepage: https://github.com/simonmittag/p0d
     tap:
       owner: simonmittag
       name: homebrew-cli
     commit_author:
       name: simonmittag
       email: simonmittag@gmail.com
-
-checksum:
-  name_template: 'checksums.txt'
