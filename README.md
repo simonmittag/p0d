@@ -13,7 +13,7 @@ released 14/04/25.
 [![Codeclimate Test Coverage](https://api.codeclimate.com/v1/badges/06a7484f009ea48a3832/test_coverage)](https://codeclimate.com/github/simonmittag/p0d/test_coverage)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)](https://img.shields.io/github/go-mod/go-version/simonmittag/p0d)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Version](https://img.shields.io/badge/version-0.4.0-orange)](https://github.com/simonmittag/p0d)
+[![Version](https://img.shields.io/badge/version-0.4.6-orange)](https://github.com/simonmittag/p0d)
 
 ## Up and running
 
