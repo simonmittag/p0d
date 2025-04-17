@@ -246,11 +246,7 @@ type OSNet struct {
 func NewOSNet() (*OSNet, error) {
 	closeIdler := &http.Client{}
 	spdt := speedtest.New(speedtest.WithDoer(closeIdler))
-	user, e1 := spdt.FetchUserInfo()
-	if e1 != nil {
-		return nil, e1
-	}
-	servers, e2 := spdt.FetchServers(user)
+	servers, e2 := spdt.FetchServers()
 	if e2 != nil {
 		return nil, e2
 	}
@@ -260,7 +256,6 @@ func NewOSNet() (*OSNet, error) {
 	if len(targets) == 0 || e3 != nil {
 		return nil, e3
 	}
-	user = nil
 	servers = nil
 
 	return &OSNet{

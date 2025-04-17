@@ -973,23 +973,23 @@ func (p *P0d) getOSINetSpeed(maxWaitSeconds int) {
 			abort(osn, cancel)
 		})
 
-		e2 := osn.Target.DownloadTestContext(ctx, true)
+		e2 := osn.Target.DownloadTestContext(ctx)
 		if e2 == nil {
-			p.OS.InetDlSpeedMBits = osn.Target.DLSpeed
+			p.OS.InetDlSpeedMBits = osn.Target.DLSpeed.Mbps()
 			p.OS.inetDlSpeedDoneFlag = true
 			p.OS.inetDlSpeedDone <- struct{}{}
 		} else {
 			abort(osn, cancel)
 		}
-		e3 := osn.Target.UploadTestContext(ctx, true)
+		e3 := osn.Target.UploadTestContext(ctx)
 		if e3 == nil {
-			p.OS.InetUlSpeedMBits = osn.Target.ULSpeed
+			p.OS.InetUlSpeedMBits = osn.Target.ULSpeed.Mbps()
 			p.OS.inetUlSpeedDoneFlag = true
 			p.OS.inetUlSpeedDone <- struct{}{}
 		} else {
 			abort(osn, cancel)
 		}
-		e1 := osn.Target.PingTestContext(ctx)
+		e1 := osn.Target.PingTestContext(ctx, nil)
 		if e1 == nil {
 			p.OS.InetLatencyNs = osn.Target.Latency
 			p.OS.inetLatencyDoneFlag = true
