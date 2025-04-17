@@ -143,6 +143,9 @@ func (cfg *Config) validate() *Config {
 		if h == "" {
 			h = u.Host
 		}
+		if len(u.Scheme) == 0 {
+			cfg.Req.Url = "http://" + cfg.Req.Url
+		}
 		if len(p) > 0 {
 			p1, e2 := strconv.Atoi(p)
 			if e2 != nil {
