@@ -90,11 +90,19 @@ func (w *Welford) VarPop() float64 {
 }
 
 func (w *Welford) Cv() float64 {
-	return w.s.StandardDeviation() / w.s.Mean()
+	mean := w.s.Mean()
+	if mean == 0 || math.IsNaN(mean) || math.IsInf(mean, 0) {
+		return 0
+	}
+	return w.s.StandardDeviation() / mean
 }
 
 func (w *Welford) Stderr() float64 {
-	return w.s.StandardDeviation() / math.Sqrt(float64(w.s.NumDataValues()))
+	n := float64(w.s.NumDataValues())
+	if n == 0 {
+		return 0
+	}
+	return w.s.StandardDeviation() / math.Sqrt(n)
 }
 
 func (w *Welford) MarshalJSON() ([]byte, error) {
