@@ -8,7 +8,10 @@ jobs:
       TEST_RESULTS: /tmp/test-results
       CC_TEST_REPORTER_ID: 35c4dda715818f2d85184d91bb67dbf568d09d0c574bc4e24be04be2618a08f0
     steps:
-      - checkout # check out source code to working directory
+      - run:
+          name: Clone via HTTPS
+          command: |
+            git clone https://github.com/simonmittag/p0d.git .
       - run: go build github.com/simonmittag/p0d
       - run: go install github.com/simonmittag/p0d/cmd/p0d
       - run:
