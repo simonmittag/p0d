@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: cimg/go:1.18 #
+      - image: cimg/go:1.24
     environment:
       TEST_RESULTS: /tmp/test-results
       CC_TEST_REPORTER_ID: 35c4dda715818f2d85184d91bb67dbf568d09d0c574bc4e24be04be2618a08f0
